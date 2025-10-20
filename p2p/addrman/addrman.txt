@@ -1,0 +1,13 @@
+How often should we expect nodes to go terrible 
+Expecting nodes that should be marked as terrible 
+should not say in addrman for more than 30 days 
+
+Probability assumptions 
+1. that the average addrman is 50,000 address both on tried and the new table.
+2. that a feeler connection is how we mostly try to connect to new addresses
+3. that the current checks in terrible are likely to never be true
+4. that addresses are mostly marked as terrible it  by timestamps 
+
+when will even attempt to connect to an address 10 times in a week --never 
+what is the probability that a single address will ever have an attempt of 3 times even within a month
+how do we primary get rid of offline addresses that we have received 
