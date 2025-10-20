@@ -11,3 +11,47 @@ Probability assumptions
 when will even attempt to connect to an address 10 times in a week --never 
 what is the probability that a single address will ever have an attempt of 3 times even within a month
 how do we primary get rid of offline addresses that we have received 
+
+
+for the day 16th october 
+Attempted feelers:703
+Successful feelers:156
+Received addr 1000: 30 
+
+
+Calculate that the following are never true other than timestamps:
+- bool AddrInfo::IsTerrible(NodeSeconds now) const
+{
+    //1.Do not remove an address that we have just attempted to connect to
+    if (now - m_last_try <= 1min) { // never remove things tried in the last minute
+        return false;
+    }
+    //2.Do remove an address that has a timestamp that is in the future
+    if (nTime > now + 10min) { // came in a flying DeLorean
+        return true;
+    }
+    //3.Do remove an address that is older than  a month 
+
+    if (now - nTime > ADDRMAN_HORIZON) { // not seen in recent history
+        return true;
+    }
+    //4.Do remoove an address that we have never sucessfuly connected to and that 
+    // we have attempted to connected to alteast 3 times 
+    if (TicksSinceEpoch<std::chrono::seconds>(m_last_success) == 0 && nAttempts >= ADDRMAN_RETRIES) { // tried N times and never a success
+        return true;
+    }
+    //5. Do remove an address that the last sucessful conection is bigger than 
+    // than a week ago and that we have failed to connect to atleast 10 times 
+    if (now - m_last_success > ADDRMAN_MIN_FAIL && nAttempts >= ADDRMAN_MAX_FAILURES) { // N successive failures in the last week
+        return true;
+    }
+
+    return false;
+
+    //when is isterrible called 
+    
+}
+
+
+how does bitcoin core evict offline nodes 
+what happens to a node when it goes offline 
