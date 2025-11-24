@@ -63,11 +63,8 @@ if thats the case when is this ever true
     }
 
 
-my intution is that this likely never true and 10 is to restrictive and likely to never to be never 
-
-if we heavily really on timestamps i could easily flood anyone addrman with offline peers since we only await for it to be able to create 
-
-a posiible attak because of realying on timestamps and having to wiat 30days 
+My intuition is that this condition is unlikely to ever be true: a threshold of 10 is too restrictive. If we rely heavily on timestamps, an attacker could flood an addrman with offline peers
+, because we only wait for peers to become usable. Relying on timestamps and enforcing a 30-day wait therefore opens a potential attack vector.
 
 for example 
 
@@ -84,17 +81,11 @@ then they get 1000 stale addresses then 1000 stale addresses again that means th
 
 this is a very noce condition 
 now - m_last_success > ADDRMAN_MIN_FAIL 
+We check when the last successful connection to this peer was.
+If, in the last 7 days, we’ve never had a successful connection, then this condition is true.
+If we’ve had two m_last_success entries, but neither is within the last 7 days, the condition still holds.
 
-we check when was the last time we have succefully connected to this peer 
-
-in the last 7 days if weve never had a succeful ten this condition is true
-if weve had 2 m_last sucess thats still not more than 7 days 
-
-ovelrying relaying on timestamps to me means that maybe the other checks are restrictive
-
-we check if we havent successfuly conected to an addresses recently 
-
-
+Overly relying on timestamps, to me, suggests that the other checks might be too restrictive.
 
 
 
