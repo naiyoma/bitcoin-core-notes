@@ -22,9 +22,6 @@ nTime = first time the address was seen or advertised
 This should be the primary stale-address filter
 
 
-But since nTime is frequently updated, it almost never triggers
-
-
 2. Never succeeded + at least 3 attempts
 if (m_last_success == 0 && nAttempts >= ADDRMAN_RETRIES)
 
@@ -38,7 +35,6 @@ With ~50,000 entries, the probability of retrying the same address 3 times is ex
 if (now - m_last_success > ADDRMAN_MIN_FAIL && nAttempts >= ADDRMAN_MAX_FAILURES)
 
 nAttempts counts attempts since last success
-
 
 Attempting one address 10 times is practically impossible under normal connection conditions
 
@@ -90,3 +86,51 @@ Assuming that feeler connections are the most reliable way to test recent addres
 The goal of continuous scoring is to strike a balance and prevent very old addresses from flooding the AddrMan while avoiding overly aggressive eviction.
 
 My idea is to assign a score to each address, so we can continuously identify stale ones:
+
+Lets combine several factors to be able to determine the score of an address
+since nTime is no longer reliable
+
+what can we use to score addresses
+1. When we last tried to connect (m_last_try)
+
+Gradual increase can work as follows:
+
+Last tried today → 0.0
+
+Last tried 14 days ago → 0.2
+
+Last tried 30+ days ago → 1.0
+
+2. When we last attempted (m_last_count_attempt)
+
+Gradual increase similar to the above:
+
+Last attempt today → 0.0
+
+Last attempt 14 days ago → 0.2
+
+Last attempt 30+ days ago → 1.0
+
+3. Number of connection failures (nAttempts)
+
+0 failures → 0.0
+
+1 failure → 0.2
+
+3+ failures → 1.0
+
+4. Last successful connection (m_last_success)
+
+Success today → 0.0
+
+Success 30 days ago → 0.2
+
+Success 60+ days ago → 0.8
+
+Never succeeded → 0.1
+
+
+From this, addresses with the highest scores are considered terrible.
+
+My thinking is: can we use the existing fields and create an algorithm that is efficient enough for stale addresses?
+
