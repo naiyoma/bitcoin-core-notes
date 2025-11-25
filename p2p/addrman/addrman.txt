@@ -1,453 +1,92 @@
-How often should we expect nodes to go terrible 
-Expecting nodes that should be marked as terrible 
-should not say in addrman for more than 30 days 
 
 Probability assumptions 
-1. that the average addrman is 50,000 address both on tried and the new table.
-2. that a feeler connection is how we mostly try to connect to new addresses
-3. that the current checks in terrible are likely to never be true
-4. that addresses are mostly marked as terrible it  by timestamps 
+1. My AddrMan contains around 50,000 addresses (combined across the tried and new tables)
+2. Feeler connections are the primary mechanism for testing new addresses.
+3. That we primary use timestamps to mark zombie addresses as terrible. 
+4. That the other checks inside IsTerrible mostly handle edge cases.(therefore we cant use them to evict a majority of the stale addresses)
 
-when will even attempt to connect to an address 10 times in a week --never 
-what is the probability that a single address will ever have an attempt of 3 times even within a month
-how do we primary get rid of offline addresses that we have received 
-
-
-for the day 16th october 
+Data from my Node for the day 16th october 
 Attempted feelers:703
 Successful feelers:156
 Received addr 1000: 30 
 
 
-Calculate that the following are never true other than timestamps:
-- bool AddrInfo::IsTerrible(NodeSeconds now) const
-{
-    //1.Do not remove an address that we have just attempted to connect to
-    if (now - m_last_try <= 1min) { // never remove things tried in the last minute
-        return false;
-    }
-    //2.Do remove an address that has a timestamp that is in the future
-    if (nTime > now + 10min) { // came in a flying DeLorean
-        return true;
-    }
-    //3.Do remove an address that is older than  a month 
+Below is my interpretation of the three conditions that could otherwise help classify addresses as stale.
 
-    if (now - nTime > ADDRMAN_HORIZON) { // not seen in recent history
-        return true;
-    }
-    //4.Do remoove an address that we have never sucessfuly connected to and that 
-    // we have attempted to connected to alteast 3 times 
-    if (TicksSinceEpoch<std::chrono::seconds>(m_last_success) == 0 && nAttempts >= ADDRMAN_RETRIES) { // tried N times and never a success
-        return true;
-    }
-    //5. Do remove an address that the last sucessful conection is bigger than 
-    // than a week ago and that we have failed to connect to atleast 10 times 
-    if (now - m_last_success > ADDRMAN_MIN_FAIL && nAttempts >= ADDRMAN_MAX_FAILURES) { // N successive failures in the last week
-        return true;
-    }
+1. Address older than the horizon (30 days)
+if (now - nTime > ADDRMAN_HORIZON)
 
-    return false;
-
-    //when is isterrible called 
-    
-}
+nTime = first time the address was seen or advertised
 
 
-how does bitcoin core evict offline nodes 
-what happens to a node when it goes offline ?
-We have to wait for 30days for it to be removed from addrman?
-if thats the case when is this ever true 
-
- if (now - m_last_success > ADDRMAN_MIN_FAIL && nAttempts >= ADDRMAN_MAX_FAILURES) { // N successive failures in the last week
-        return true;
-    }
+This should be the primary stale-address filter
 
 
-My intuition is that this condition is unlikely to ever be true: a threshold of 10 is too restrictive. If we rely heavily on timestamps, an attacker could flood an addrman with offline peers
-, because we only wait for peers to become usable. Relying on timestamps and enforcing a 30-day wait therefore opens a potential attack vector.
+But since nTime is frequently updated, it almost never triggers
 
-for example 
 
-Node A Node B 
+2. Never succeeded + at least 3 attempts
+if (m_last_success == 0 && nAttempts >= ADDRMAN_RETRIES)
 
-iF NODE B adds Node A as an outbound peer 
-Node A responds with 1000 stale address 
+Most addresses will never reach 3 attempts
 
-assuming node B has a small addramn 
 
-20,000 nodes 
+With ~50,000 entries, the probability of retrying the same address 3 times is extremely low
 
-then they get 1000 stale addresses then 1000 stale addresses again that means they have to wait for 30 days to clean out this address 
 
-this is a very noce condition 
-now - m_last_success > ADDRMAN_MIN_FAIL 
-We check when the last successful connection to this peer was.
-If, in the last 7 days, we’ve never had a successful connection, then this condition is true.
-If we’ve had two m_last_success entries, but neither is within the last 7 days, the condition still holds.
+3. Last success over a week ago + 10 failed attempts
+if (now - m_last_success > ADDRMAN_MIN_FAIL && nAttempts >= ADDRMAN_MAX_FAILURES)
 
-Overly relying on timestamps, to me, suggests that the other checks might be too restrictive.
+nAttempts counts attempts since last success
+
+
+Attempting one address 10 times is practically impossible under normal connection conditions
 
 
 
 
-i have this address conditions 
-
-class AddrInfo : public CAddress
-{
-public:
-    //! last try whatsoever by us (memory only)
-    NodeSeconds m_last_try{0s};
-
-    //! last counted attempt (memory only)
-    NodeSeconds m_last_count_attempt{0s};
-
-    //! where knowledge about this address first came from
-    CNetAddr source;
-
-    //! last successful connection by us
-    NodeSeconds m_last_success{0s};
-
-    //! connection attempts since last successful attempt
-    int nAttempts{0};
-
-    //! reference count in new sets (memory only)
-    int nRefCount{0};
-
-    //! in tried set? (memory only)
-    bool fInTried{false};
-
-    //! position in vRandom
-    mutable int nRandomPos{-1};
-
-    SERIALIZE_METHODS(AddrInfo, obj)
-    {
-        READWRITE(AsBase<CAddress>(obj), obj.source, Using<ChronoFormatter<int64_t>>(obj.m_last_success), obj.nAttempts);
-    }
-
-    AddrInfo(const CAddress &addrIn, const CNetAddr &addrSource) : CAddress(addrIn), source(addrSource)
-    {
-    }
-
-    AddrInfo() : CAddress(), source()
-    {
-    }
-
-    //! Calculate in which "tried" bucket this entry belongs
-    int GetTriedBucket(const uint256& nKey, const NetGroupManager& netgroupman) const;
-
-    //! Calculate in which "new" bucket this entry belongs, given a certain source
-    int GetNewBucket(const uint256& nKey, const CNetAddr& src, const NetGroupManager& netgroupman) const;
-
-    //! Calculate in which "new" bucket this entry belongs, using its default source
-    int GetNewBucket(const uint256& nKey, const NetGroupManager& netgroupman) const
-    {
-        return GetNewBucket(nKey, source, netgroupman);
-    }
-
-    //! Calculate in which position of a bucket to store this entry.
-    int GetBucketPosition(const uint256 &nKey, bool fNew, int bucket) const;
-
-    //! Determine whether the statistics about this entry are bad enough so that it can just be deleted
-    bool IsTerrible(NodeSeconds now = Now<NodeSeconds>()) const;
-
-    //! Calculate the relative chance this entry should be given when selecting nodes to connect to
-    double GetChance(NodeSeconds now = Now<NodeSeconds>()) const;
-};
-
-
-and then i have this function
 bool AddrInfo::IsTerrible(NodeSeconds now) const
 {
-    //1.Do not remove an address that we have just attempted to connect to
     if (now - m_last_try <= 1min) { // never remove things tried in the last minute
         return false;
     }
-    //2.Do remove an address that has a timestamp that is in the future
+
     if (nTime > now + 10min) { // came in a flying DeLorean
         return true;
     }
-    //3.Do remove an address that is older than  a month 
 
     if (now - nTime > ADDRMAN_HORIZON) { // not seen in recent history
         return true;
     }
-    //4.Do remoove an address that we have never sucessfuly connected to and that 
-    // we have attempted to connected to alteast 3 times 
+
     if (TicksSinceEpoch<std::chrono::seconds>(m_last_success) == 0 && nAttempts >= ADDRMAN_RETRIES) { // tried N times and never a success
         return true;
     }
-    //5. Do remove an address that the last sucessful conection is bigger than 
-    // than a week ago and that we have failed to connect to atleast 10 times 
+
     if (now - m_last_success > ADDRMAN_MIN_FAIL && nAttempts >= ADDRMAN_MAX_FAILURES) { // N successive failures in the last week
         return true;
     }
 
     return false;
-
-    //when is isterrible called 
-    
 }
 
-Given this conditions 
-I have received addresses today that have gone offline but they have very new timestamps
-so my understanding is the condition that will likely be true is this one 
 
- if (now - nTime > ADDRMAN_HORIZON) { // not seen in recent history
-        return true;
-    }
 
-    that means i'll have to wait atleast 30days to mark this address as terrible 
+Given the conditions above, is it possible to add another condition that we can use to mark addresses as terrible?
 
-i think the other conditions might not be true 
+To do this, a balance needs to be achieved:
 
-and this is because in 30 days if i have an addrman that has 50,000 addresses then 
+A lenient condition will excessively evict addresses, leaving AddrMan empty.
 
-it will take a very long time by the time i try to connect to every address in my addrman for the other 
-conditions that rely on connection to be true 
+A too strict condition will flood AddrMan, since almost no eviction will occur.
 
-so if we primarily use feeler connections to test new connections which happen every 2 minutes then if i calculate probabilyt
-it will take more than 3o days for nay other condition to be true 
 
-given this properties
+Continuous Scoring for Addresses
 
-public: //! last try whatsoever by us (memory only) NodeSeconds m_last_try{0s}; //! last counted attempt (memory only) NodeSeconds m_last_count_attempt{0s}; //! where knowledge about this address first came from CNetAddr source; //! last successful connection by us NodeSeconds m_last_success{0s}; //! connection attempts since last successful attempt int nAttempts{0}; //! reference count in new sets (memory only) int nRefCount{0}; //! in tried set? (memory only) bool fInTried{false}; //! position in vRandom mutable int nRandomPos{-1};
+I don’t know if this is normally the case, but most addresses are in the new table.
 
-i can create a new condition in isterrible
-so that incase the timestamp check fails i can create a new condition that will likely kick out the stale addreseses and it doesnt have to be in 30 days it can be more as long as the stale adress doesnt linger for too long
+Assuming that feeler connections are the most reliable way to test recent addresses—and given that they occur every 2 minutes—it would take more than 60 days to test all addresses even once.
 
-given that an addrman can have about 50,000 adresses and i try to connect to a random address every 2 minutes i am trying to prevent a scenario where to many addreses are marked as stale
+The goal of continuous scoring is to strike a balance and prevent very old addresses from flooding the AddrMan while avoiding overly aggressive eviction.
 
-i also dont want to expcesively evict addresses because this might cause addrmans to be empty so this has to be done in 
-a clever and mathematically and programitacaly way that way we dont have flooding of stale addresses but also 
-we dont excessively evict addresses without giving them enough time in the addrman so a balance is required 
-
-addrman does have tried and new table 
-
-
-continous  scoring of addresses
-
-why this is needed
-My assumptions for stale addresses we rely heavily on timestamps
-Assumption two i have an addrman of 50, 000 addrmans 
-
-I dont know if this would normally the case but mostl are on the new table 
-
-assuming that feeler connections are the most reable way to test recent connections
-
-this happen every 2 minutes 
-
-so it would probably take 60+ days to test all addresses 
-
-the goal of continous scoring addreesses is to strike a balance between the addresses that are too old flooding the network 
-
-and then not rapidly removing new addresses meaning addrman will risk being empty 
-
-or eliminating addreses to quick 
-
-btw this is a possibilyt addreseses i think where we rapidly mark addreses as old
-
-But when i think about it it really difficult right now for a single addreses to have an attempted count of 7
-
-or even worse under what circumstance will we have attempted to connect to an addreses 10 times in a span of 10days 
-
-My idea is to keep a score for addresses
-
-that way we can continously mark addreses as stale
-
-low score -- keep 
-
-high score -- is stale candidate
-
-f_try = 1 if we havent attempted in 2 weeks 
-f_sucess = 1 if we havent successed in two weeks
-f_attemps = 1 >- failed attemps 
-f_ref = 1 very popular address
-
-weighted sum 
-
-s = 0.5fage+ 0.3 f.try +0.3attempts + 0.2 sucess - 0.4 reference
-
-explanation
-old(f_age), untried(f_try) and many attemps f_attempts -increase score
-f_ref -decrease once
-score growing from - 1 address becomes stealer 
-
-so now we can use to say a bad address 
-has a score of 0.8 
-
-i think this is better than what is being rpoped and is the most optimal 
-
-
-
-# Continuous Scoring System for Address Management: Mathematical Analysis
-
-## Why Binary Conditions Fail at Scale
-
-With 50,000 addresses and feeler connections every 2 minutes (720 tests/day):
-- **Full cycle time**: 69+ days to test all addresses
-- **Problem**: Binary conditions create "cliff effects" where addresses suddenly become terrible
-- **Reality**: You correctly identified that reaching 7-10 attempts in 10 days is nearly impossible with this testing rate
-
-## The Continuous Scoring Solution
-
-### Core Formula
-```
-Score = 0.3×f_try + 0.25×f_success + 0.35×f_attempts - 0.4×f_ref - 0.2×f_table
-```
-
-### Factor Definitions
-
-| Factor | Range | Condition | Purpose |
-|--------|-------|-----------|---------|
-| f_try | [0,1] | Haven't tried in 14 days | Penalize untested addresses |
-| f_success | [0,1] | No success in 60 days | Penalize consistently failing |
-| f_attempts | [0,1] | ≥8 failed attempts | Penalize repeated failures |
-| f_ref | [0,1] | RefCount ≥ 3 | Reward popular addresses |
-| f_table | {0,1} | In tried table | Reward proven addresses |
-
-### Score Interpretation
-- **Score < 0**: Excellent address (keep)
-- **0 ≤ Score < 0.4**: Good address
-- **0.4 ≤ Score < 0.6**: Moderate (monitor)
-- **0.6 ≤ Score < 0.8**: Poor (eviction candidate)
-- **Score ≥ 0.8**: Terrible (evict)
-
-## Mathematical Advantages
-
-### 1. Smooth Transitions
-Instead of binary "terrible/not terrible", addresses gradually degrade:
-```
-Traditional: if (attempts == 3) suddenly_terrible();
-Continuous:  score = smooth_function(attempts, time, popularity)
-```
-
-### 2. Multi-Factor Balancing
-The weighted sum naturally balances multiple concerns:
-- An address with high refcount (-0.4) can survive longer even with some failures
-- An address in tried table (-0.2) gets extra protection
-- Total possible range: [-0.6, 1.9]
-
-### 3. Probabilistic Distribution
-With 50,000 addresses, score distribution approximates:
-```
-P(score < 0) ≈ 15%     (excellent, never evict)
-P(0 ≤ score < 0.4) ≈ 35%  (good)
-P(0.4 ≤ score < 0.6) ≈ 25%  (moderate)
-P(0.6 ≤ score < 0.8) ≈ 15%  (poor)
-P(score ≥ 0.8) ≈ 10%      (evict)
-```
-
-### 4. Self-Regulating System
-As addresses age without testing:
-- f_try gradually increases (0 → 1 over 14 days)
-- Score increases by 0.3
-- But popular addresses (f_ref=1) offset this by -0.4
-- Net effect: Popular addresses survive, unpopular ones don't
-
-## Optimal Weight Selection
-
-### Weight Rationale
-```
-0.35×f_attempts (highest): Failed attempts are strongest signal
-0.30×f_try:      Not trying is concerning but not definitive
-0.25×f_success:  Long-term failure matters but less than recent
--0.40×f_ref:     Strong protection for popular addresses
--0.20×f_table:   Modest bonus for proven addresses
-```
-
-### Sensitivity Analysis
-Small weight changes have predictable effects:
-- Increase f_attempts weight → Faster eviction of failing addresses
-- Increase f_ref weight → More protection for popular addresses
-- Balanced at current values for 50,000 address pool
-
-## Implementation Efficiency
-
-### Computational Complexity
-- **Score calculation**: O(1) per address
-- **No sorting required**: Direct threshold comparison
-- **Cache-friendly**: All factors from existing AddrInfo fields
-- **Deterministic**: Same address always gets same score
-
-### Memory Efficiency
-- **No additional storage**: Uses existing fields
-- **No history tracking**: Score computed on-demand
-- **Scalable**: Works for 1,000 or 100,000 addresses
-
-## Dynamic Threshold Adjustment
-
-### Adaptive Eviction Based on Fullness
-```cpp
-if (addrman_size < 10,000)  threshold = 1.2;  // Very lenient
-if (addrman_size < 25,000)  threshold = 0.8;  // Normal
-if (addrman_size < 40,000)  threshold = 0.7;  // Stricter
-if (addrman_size > 40,000)  threshold = 0.6;  // Aggressive
-```
-
-This prevents:
-- Empty addrman (threshold increases when low)
-- Overflow (threshold decreases when full)
-
-## Comparison with Age-Based Systems
-
-### Traditional Age-Based Problem
-```
-if (age > 30 days) evict();
-```
-- Doesn't consider connection attempts
-- Treats all addresses equally
-- Creates mass eviction events
-
-### Continuous Score Advantage
-```
-score = f(attempts, last_try, success, popularity)
-```
-- Age is implicit in f_try and f_success
-- Addresses "earn" their keep through refcount
-- Gradual eviction prevents waves
-
-## Expected Equilibrium
-
-With this scoring system and 50,000 initial addresses:
-
-### Steady State Prediction
-- **Active testing pool**: ~5,000 addresses (score < 0.4)
-- **Reserve pool**: ~10,000 addresses (0.4 ≤ score < 0.6)
-- **Eviction candidates**: ~5,000 addresses (score ≥ 0.8)
-- **Total maintained**: ~20,000 addresses
-
-### Time to Stability
-- **Initial chaos**: Days 1-7 (rapid scoring)
-- **Settling**: Days 7-30 (finding equilibrium)
-- **Stable**: Day 30+ (predictable behavior)
-
-## Tuning Guidelines
-
-### To Make More Aggressive
-- Increase f_attempts weight (0.35 → 0.4)
-- Decrease f_ref bonus (-0.4 → -0.3)
-- Lower threshold (0.8 → 0.7)
-
-### To Make More Conservative
-- Increase f_ref bonus (-0.4 → -0.5)
-- Increase f_table bonus (-0.2 → -0.3)
-- Raise threshold (0.8 → 0.9)
-
-### Network-Specific Tuning
-- **High-churn network**: Lower f_success weight (addresses change frequently)
-- **Stable network**: Higher f_success weight (historical success matters more)
-- **Popular network**: Higher f_ref weight (popularity is meaningful)
-
-## Conclusion
-
-The continuous scoring system is optimal because:
-
-1. **No cliff effects**: Smooth degradation prevents mass evictions
-2. **Multi-factor**: Balances all aspects of address quality
-3. **Self-regulating**: Automatically adapts to network conditions
-4. **Computationally efficient**: O(1) scoring with no extra storage
-5. **Tunable**: Weights can be adjusted for different networks
-6. **Fair**: Popular/proven addresses get deserved protection
-
-This elegantly solves the 69-day testing problem while maintaining a healthy address pool size without
- risk of emptying the addrman or keeping too many stale addresses.
+My idea is to assign a score to each address, so we can continuously identify stale ones:
