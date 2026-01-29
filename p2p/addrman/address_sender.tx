@@ -1,0 +1,413 @@
+What does each changed line actually do? Trace the execution. What functions are called, what data flows where, what's the before/after state? No skimming — if you can't explain a line, you don't understand the change.
+
+Incoming connection -> meaning we did not initiate this and is comming to us thats an inbound connection
+OutGoing connection -> is a connection from us to a peer , we sent it 
+
+We do not process getaddr messages that are from outbound connections to prevent a fingerpriting attack 
+
+For an inound connection
+Assume(SetupAddressRelay(pfrom, *peer));
+ This is always goign to be true
+
+If a peer has already send us a get addr message we ignore this message peer this connection 
+Else we set m_getaddr_recvd to be True
+
+peer->m_addrs_to_send.clear();
+
+if we had any addresses qued up that we we gonna send to this address then we imeditely clear this queue
+
+Then we create a vector to store address
+
+If this peer has netpermissions addr it means they will by pass cache permissions and get a fresh set of addresses from the addrman by passing cache limits 
+We have a maximu percentage of addresses that we can reply with which is 23% MAX_PCT_ADDR_TP_SEND AND THE MAX_ADDR_TO_SEND which is 1000
+And a null pointer pointing to the network of the addresses we want to send 
+No filter by default per network
+GetAddressesUnsafe
+ Has 4 arguments max_addresses to send max_addr man percentage , network and then the filter 
+
+std::vector<CAddress> addresses
+
+And then i create a vector addresses and then singing it values that i get from calling 
+addrman.GetAddr(max_addresses, max_pct, network, filtered);
+
+GetAddr -> GetAddr_
+
+AddrManImpl::GetAddr_
+
+we check that the maximum percentage is less than or equal to 100 should never be more than 100
+size_t nNodes = vRandom.size();
+We fetch the total number of address ids in our Addrman
+Max_percentage is never going to be more than 100
+max_pct = std::min(max_pct, size_t{100});
+
+We choose the minum value between max_pct and size_t 
+So for example i have 23 max_pct and size_t(100)
+Now max_pct is going to be 23
+
+fetch the sixe of address ids in our addrman
+so and is a mix of what is the tried and new table
+and then we update this to e lets say max_pcts was 23 
+nNodes = max_pct * nNodes / 100;
+
+and nNOdes was 20000,
+now nodes 20,000 * 23 / 100 
+
+so the number of nodes is now 4600
+
+Thats is 23% of what was in ouraddrman
+
+For the maxim address
+We take the minimum value between 
+Maximu_addresses and nNodes 
+So if maximum addresse is 1000 addresse and nNodes is like 46000
+nNodes is now 1000
+
+this helps becaise sometimes we have a small addrman
+We fetch the current time and then we create a new vector to hold addresses
+Ensure that the container is of the right size capacity using .reserve()
+Ensure that the container is of the right size capacity using .reserve()
+
+So allocates enough memory for our Nnodes
+
+
+Above nNode was update to be 1000 
+But Vrandom is still all the address ids in addrman 
+So we loop though all this address ids 
+for (unsigned int n = 0; n < vRandom.size(); n++) {
+
+if (addresses.size() >= nNodes)
+            break;
+
+we check that our new vector is not bigger than or equal to to our Nnode which has 1000 
+This is our exit condition
+We will eventually after address has enough address 
+First iteration 
+Address is 1 not exit 
+By the last iteration then we 
+
+int nRndPos = insecure_rand.randrange(vRandom.size() - n) + n;
+we create a variable 
+and that will hold the randomized value of vrandim.size()
+so if our addrman is 4600
+so lets say we are in the first loop so n is 0
+this is going to be 
+4600 - 1) + 0
+
+because we are trying to choose a random possition in our addrman
+
+So we choose any random position between 0 and 4599
+
+then we pass 0,4599 to swaprandom
+
+To undersyand SwapRandom read on  Fisher-Yates shuffle
+
+Swap random will receive (SwapRandom(n, nRndPos))
+N Being 0 and nRndPos being 4599
+
+Vrandom[0] = id_99
+Vrandom[4599] = id_206
+
+So this is swapping the ids from addrman 
+From SwapRandom Vrandom[0] is going to be a random value
+ID_99 and maybeVrandom[4599] = ID_209
+const auto it{mapInfo.find(vRandom[n])};
+
+So when I fetch n ths going to tbe vRndaon[0] we are fetching the ID_99 even thought n is still index 0 
+
+Even though n = 0 the condense of the Id have changed so 
+Before swap we had at inden = 0 we had ID_42
+After swap we had at index = 0 we have ID_99
+
+Find the values in Vrandom and then return it a pointer that points the values of An addressInfo in  the Unordered Map.
+Check that this id actually exists in our map assert(it != mapInfo.end());
+
+
+const AddrInfo& ai{it->second};
+
+THE Above referenc will point to the AddrInfo
+With this reference i can do 
+ai.last_success etc …
+
+Filtering by network is optional
+For example what mean is that thai getaddr request could come with a networkfilter
+Meaning the sender is requesting a specific network type
+if (network != std::nullopt && ai.GetNetClass() != network) continue;
+
+Check that network is not a nullopt and that this address ai has a Netclass so we call 
+GetNetcalls ie what happens here if the address is onion or ipv4 or ipv6  
+This is what GetNetClass will do our address 
+Is it an internal address
+/// A set of addresses that represent the hash of a string or FQDN. We use
+   /// them in AddrMan to keep track of which DNS seeds were used.
+   NET_INTERNAL,
+
+Should not be bool CNetAddr::IsRoutable() const
+{
+   return IsValid() && !(IsRFC1918() || IsRFC2544() || IsRFC3927() || IsRFC4862() || IsRFC6598() || IsRFC5737() || IsRFC4193() || IsRFC4843() || IsRFC7343() || IsLocal() || IsInternal());
+}
+
+Routable address are private addresses like private ips, localhost etc
+
+
+bool CNetAddr::HasLinkedIPv4() const
+{
+   return IsRoutable() && (IsIPv4() || IsRFC6145() || IsRFC6052() || IsRFC3964() || IsRFC4380());
+}
+
+Is this an Ipv6 address wrapped like an Ipv4 address
+
+
+If network is for example IPV4
+AND ai.getNetclass returns IPv4 then this condition is false
+ai.GetNetClass() != network
+
+So we keep ai 
+When this condition is true we continue as in skip this address
+if (ai.IsTerrible(now) && filtered) continue
+
+We filter for is Terrible meaning this filtered is true and so this peer wants only fresh addresses
+I do think this is also optional
+Or do we always filter fo fresh addresses 
+i s this addresses currently than 30 days form now or not seen recently and all the other is rettible 
+Is this is true thaen we continue if its not then we pick this address 
+addresses.push_back(ai);
+
+At this point we add the ai address to the vector
+
+return addresses; GetAddr_will return a list of address
+We Go back to GetAddressesUnsafe
+
+And at this point
+std::vector<CAddress> addresses = addrman.GetAddr(max_addresses, max_pct, network, filtered);
+
+We now have a list of addresses
+/** Pointer to this node's banman. May be nullptr - check existence before dereferencing. */
+    BanMan* m_banman;
+
+we use this pointer to fulter filter out the addresses 
+so if an address is baned is or discourraged then we remove it from our list
+if (m_banman) {
+        addresses.erase(std::remove_if(addresses.begin(), addresses.end(),
+                        [this](const CAddress& addr){return m_banman->IsDiscouraged(addr) || m_banman->IsBanned(addr);}),
+                        addresses.end());
+    }
+i think this design may not be ideal we are missing out an opputinity to goddpi honest nodes because of filtering late
+ie if i got 1000 addresses then we filter agin maybe i remove 1000 and i dont have an opptinuty to choose better addresses again so i will send out 900 yet i have more honset nodes
+
+vAddr = m_connman.GetAddressesUnsafe(MAX_ADDR_TO_SEND, MAX_PCT_ADDR_TO_SEND, /*network=*/std::nullopt);
+this VAddre == addresses retunred by GetaddressUnsafe 
+
+Then we for (const CAddress &addr : vAddr) {
+           PushAddress(*peer, addr);
+       }
+
+Loop through each address and Pass IT tO pUSHaddress
+
+Push Address will filter again and then check 
+That this peer actually know this address peer.m_addr_known
+That way we dont send any duplicated to the same peer
+Check if address is Valid
+addr.IsValid()
+
+this peer doesnt now know this addresss
+!peer.m_addr_known->contains(addr.GetKey())
+IsAddrCompatible(peer, addr))
+
+Address is compatible
+is this epeer compatible with the address that we are going to send
+
+Maybe at this point we have an invalida address agin or not compatible or this peer adreayd knows it 
+We reduce aagin by 100
+
+Then we check that we cleared earlier so for our situation this is 0
+At this point
+if (peer.m_addrs_to_send.size() >= MAX_ADDR_TO_SEND) {
+So at this point this is going to be false
+
+We add our address to the queue
+peer.m_addrs_to_send.push_back(addr);
+
+And we do this for all our addresseses
+
+ThreadMessageHandler
+
+This thread will call SendMessages again with 
+
+GetAddresses
+
+THIS IS WHEN we a peer that doesnt have the right persimmsions call us
+We still use GetaddrtUnsafe to fetch addresses but ibky didferebce since the cache rules apply
+
+https://asmap.org/background/ read on ASMAP
+
+GetAddressesUnsafe
+ Is also called inn 
+void CConnman::ASMapHealthCheck
+
+And this is triggered when we start running a node
+getnodeaddresses
+ We call GetAddressuNSAFE TO GET  anumber of number of 1000
+
+And now if we were to there are two places after i have i have added this addresses that this addresses will be filter banman and Psuh
+
+In getAddr
+This the point we get the maximum number of addresses
+for (unsigned int n = 0; n < vRandom.size(); n++) { if (addresses.size() >= nNodes) break;
+The maximum number of address we can respond to is always 1000 address
+How does the undershooting happen is that in in banman assuming getaddr returned 1000 addresses if some of those addresses maybe 100 are banned or discouraged then this would then our addresses are reduced by  1000 -900
+But with this solution if we have alist of addresses that are going to beanned 
+We call get address with max_address 0 meaning the addresses returned will not be filled by max_address of 1000 
+Maybe we get 4600 then we ban 100 = 4500 
+And then we resize this to = 1000
+
+Why is each piece necessary? For every hunk: why is this here? What breaks if you remove it? This connects the details to the whole and exposes unnecessary code or missing pieces
+.
+What code interacts with these changes? Who calls this? What does this call? What else reads or writes the same state? The diff is never the full picture — you need the surrounding context.
+
+What assumptions does this code make? What must be true for this to work? Input ranges, ordering, locking, prior initialization? Unstated assumptions are where bugs hide.
+
+What happens at the boundaries? Empty inputs, maximum values, concurrent access, first run vs steady state, error paths. The happy path is easy — edges reveal whether the author truly understood the problem.
+
+I dont have much of on my on mind as i havent fully tested the other implementation yet
+But i do like this approach better as it was easier to folllow 
+
+AN observation i thought id share is that i do feel like theres alos another filtering of this addresses 
+For geTaddr specifically Push addresses 
+Even thought i havent thought of a fic for this but this addresses assuming 1000 addresses would still be filtered in Push aDDRESS 
+
+
+
+2026-01-24T10:47:19Z [net] GetAddressesUnsafe Perfomance:
+2026-01-24T10:47:19Z [net] GetAddressesUnsafe: max_addresses=1000, max_pct=23
+2026-01-24T10:47:19Z [net] GetAddressesUnsafe: GetAddr() returned 1000 addresses
+2026-01-24T10:47:19Z [net] GetAddressesUnsafe: Banned/discouraged removed: 0
+2026-01-24T10:47:19Z [net] GetAddressesUnsafe: Final count: 1000
+2026-01-24T10:47:19Z [net] GetAddressesUnsafe: Time - GetAddr=1011μs, ban_filter=340μs, total=1352μs
+2026-01-24T10:47:19Z [net] GETADDR: GetAddressesUnsafe returned 1000 addresses in 1483μs
+
+2026-01-24T16:26:23Z [net] GetAddressesUnsafe Perfomance:
+2026-01-24T16:26:23Z [net] GetAddressesUnsafe: max_addresses=1000, max_pct=23
+2026-01-24T16:26:23Z [net] GetAddressesUnsafe: GetAddr() returned 14534 addresses
+2026-01-24T16:26:23Z [net] GetAddressesUnsafe: Banned/discouraged removed: 13534
+2026-01-24T16:26:23Z [net] GetAddressesUnsafe: Final count: 1000
+2026-01-24T16:26:23Z [net] GetAddressesUnsafe: Time - GetAddr=11342μs, ban_filter=8885μs, total=20227μs
+2026-01-24T16:26:23Z [net] GETADDR: GetAddressesUnsafe returned 1000 addresses in 20931μs
+
+
+
+2026-01-24T17:22:33Z [net] GetAddressesUnsafe Perfomance:
+2026-01-24T17:22:33Z [net] GetAddressesUnsafe: max_addresses=1000, max_pct=23
+2026-01-24T17:22:33Z [net] GetAddressesUnsafe: GetAddr() returned 1000 addresses
+2026-01-24T17:22:33Z [net] GetAddressesUnsafe: Banned/discouraged removed: 0
+2026-01-24T17:22:33Z [net] GetAddressesUnsafe: Final count: 1000
+2026-01-24T17:22:33Z [net] GetAddressesUnsafe: Time - GetAddr=888μs, ban_filter=342μs, total=1230μs
+2026-01-24T17:22:33Z [net] GETADDR: GetAddressesUnsafe returned 1000 addresses in 1369μs
+
+
+2026-01-24T17:35:34Z [net] GetAddressesUnsafe Perfomance:
+2026-01-24T17:35:34Z [net] GetAddressesUnsafe: max_addresses=1000, max_pct=23
+2026-01-24T17:35:34Z [net] GetAddressesUnsafe: GetAddr() returned 14547 addresses
+2026-01-24T17:35:34Z [net] GetAddressesUnsafe: Banned/discouraged removed: 13547
+2026-01-24T17:35:34Z [net] GetAddressesUnsafe: Final count: 1000
+2026-01-24T17:35:34Z [net] GetAddressesUnsafe: Time - GetAddr=13081μs, ban_filter=6316μs, total=19397μs
+2026-01-24T17:35:34Z [net] GETADDR: GetAddressesUnsafe returned 1000 addresses in 19703μs
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+25th tests
+
+
+2026-01-25T15:13:32Z [net] received: getaddr (0 bytes) peer=5
+2026-01-25T15:13:32Z [net] GetAddressesUnsafe Perfomance:
+2026-01-25T15:13:32Z [net] GetAddressesUnsafe: Trimmed by resize: 13540
+2026-01-25T15:13:32Z [net] GetAddressesUnsafe: Actually banned/discouraged: 0
+2026-01-25T15:13:32Z [net] GetAddressesUnsafe: max_addresses=1000, max_pct=23
+2026-01-25T15:13:32Z [net] GetAddressesUnsafe: GetAddr() returned 14540 addresses
+2026-01-25T15:13:32Z [net] GetAddressesUnsafe: Final count: 1000
+2026-01-25T15:13:32Z [net] GetAddressesUnsafe: Time - GetAddr=17960μs, ban_filter=8781μs, total=26741μs
+2026-01-25T15:13:32Z [net] GETADDR: GetAddressesUnsafe returned 1000 addresses in 27012μs
+
+
+2026-01-25T15:45:12Z [net] GetAddressesUnsafe Performance:
+2026-01-25T15:45:12Z [net]   max_addresses=1000, max_pct=23
+2026-01-25T15:45:12Z [net]   GetAddr() returned: 1000 addresses
+2026-01-25T15:45:12Z [net]   Actually banned/discouraged: 0
+2026-01-25T15:45:12Z [net]   Trimmed by resize: 0
+2026-01-25T15:45:12Z [net]   Final count: 1000
+2026-01-25T15:45:12Z [net]   Time - GetAddr=1583μs, ban_filter=682μs, total=2265μs
+2026-01-25T15:45:12Z [net] GETADDR: GetAddressesUnsafe returned 1000 addresses in 2573μs
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Concept Ack, I do agree that this approach is simpler, but could be further optimized to improve performance.
+
+For GETADDR, this is my understanding of how we filter addresses. During address selection, and then twice again after selection.
+Filter for banned and discouraged addresses in GetAddressesUnsafe
+Filter for IsValid, IsAddrCompatible, and m_addr_known in PushAddress.
+If GetAddr returns 1000 addresses and a user has 100 banned and 100 invalid addresses
+GetAddr() returns:           1000 addresses
+After GetAddressesUnsafe():  900 addresses (100 banned removed)
+After PushAddress():         800 addresses (100 invalid/incompatible removed)
+Final sent to peer:           800 addresses
+
+
+By fetching all addresses upfront if banman is true and filtering out banned/discouraged addresses and then resizing to max_addresses, we increase the chances of returning 1000 addresses.
+
+I tested [commit] by sending a getaddr to my node 
+
+And then logged timestamps: start time before right before getting all addresses, after Getaddr(), and end time before returning all addresses.
+
+Before change 
+2026-01-25T15:45:12Z [net] GetAddressesUnsafe Performance:
+2026-01-25T15:45:12Z [net]   max_addresses=1000, max_pct=23
+2026-01-25T15:45:12Z [net]   GetAddr() returned: 1000 addresses
+2026-01-25T15:45:12Z [net]   Actually banned/discouraged: 0
+2026-01-25T15:45:12Z [net]   Trimmed by resize: 0
+2026-01-25T15:45:12Z [net]   Final count: 1000
+2026-01-25T15:45:12Z [net]   Time - GetAddr=1583μs, ban_filter=682μs, total=2265μs
+2026-01-25T15:45:12Z [net] GETADDR: GetAddressesUnsafe returned 1000 addresses in 2573μs
+
+After change 
+2026-01-25T15:13:32Z [net] received: getaddr (0 bytes) peer=5
+2026-01-25T15:13:32Z [net] GetAddressesUnsafe Perfomance:
+2026-01-25T15:13:32Z [net] GetAddressesUnsafe: Trimmed by resize: 13540
+2026-01-25T15:13:32Z [net] GetAddressesUnsafe: Actually banned/discouraged: 0
+2026-01-25T15:13:32Z [net] GetAddressesUnsafe: max_addresses=1000, max_pct=23
+2026-01-25T15:13:32Z [net] GetAddressesUnsafe: GetAddr() returned 14540 addresses
+2026-01-25T15:13:32Z [net] GetAddressesUnsafe: Final count: 1000
+2026-01-25T15:13:32Z [net] GetAddressesUnsafe: Time - GetAddr=17960μs, ban_filter=8781μs, total=26741μs
+2026-01-25T15:13:32Z [net] GETADDR: GetAddressesUnsafe returned 1000 addresses in 27012μs
+
+
+This difference isn’t significant to me (0.024439 seconds), since it’s just a few seconds. But I only have a few addresses in my AddrMan—I’d expect this to be slower if I had more banned addresses and more addresses (40k+).
+Though performance issue doesn’t bother me as much, since I think it can be improved by not fetching all the addresses, instead Max_address * 2 or even max-address * 4 is still sufficient.
+
+
+
+
+I have compiled and tested this locally with:
+build/bin/test_bitcoin --run_test=addrman_tests/addrman_penalty_self_announcement
+
+test passed as expected
