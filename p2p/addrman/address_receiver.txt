@@ -1,0 +1,271 @@
+The first thing is check if this is an ADDRv2 message
+
+create an empty vector that will hold the address object(std::vector<CAddress> vAddr); 
+
+deserialize the data from the message(vRecv >> ser_params(vAddr);)
+
+The peerr that we are receiving this addr message from should not be an outbound block-relay only peer 
+outbound meaning they connected to us and then block-relay-only are peers(do not gossip tx or addr messages)
+
+A peer should never send us more that 1000 addresses otherwise its misbehaving 
+
+We create another empty vector to hold new addresses (std::vector<CAddress> vAddrOk);
+
+and instantiate a variable for current time (const auto current_a_time{Now<NodeSeconds>()};)
+
+every peer has a refrence to a token bucket before incrementing or updating this peers tokens( this what is called rate limiting)
+
+MAX_ADDR_PROCESSING_TOKEN_BUCKET this hold the tokens that is quivalent to the maximum number of address a peer should
+send us at a goiven time 
+
+and for a getaddr response this is always 10001 
+
+We will process an address if we have enough tokens
+
+a peer is rate_limted if they dont have pemissions to send us unlimted number of addresses(const bool rate_limited = !pfrom.HasPermission(NetPermissionFlags::Addr);)
+
+we shuffle the vector that we store addtore addreses  that way its not possible to have a specific order of addresses in which we received form a peer
+
+We start to process the addresses one by one
+
+As we start to process each address 
+
+- we start by check if this peer is rate limited 
+if a peers token is less than 1 maybe 0 and it is rate_limited true meaning we should receive an unlimted number of address from it 
+then this how we know we will relay on the tokens in the bucket
+we increment the variable number rate limit by 1 and then we continue 
+
+but if the token is more than or equal to 1 we decrement by 1 because we are starting to process one of its addresses
+
+if the address does not have service NODE_NETWORK and NODE_NETWORK_LIMITED
+
+if the address is to old into the furture or 10 minutes into the future its udated to 5 days ago
+
+Next we attach that yes this address is known from this peer AddAddressKnown(*peer, addr);
+
+If an address is banned or discourage then we will not process it 
+
+then we incremeber the number processed by 1
+
+an address should be part of our rechable network for example if an address is ipv4 and our rechable networks are only through onion 
+then rechable is false 
+
+next check is the address is not too old , somewhat fresh just 10 minutes into the futureaddr.nTime > current_a_time - 10min
+we did not send a getaddr to this peer !peer->m_getaddr_sent
+that it sending us 10 or less than 10 addresses vAddr.size() <= 10
+
+and the address is Routable what is a Routable Address
+and an address is routable if its IsValid
+RFC918 eXAMPLE 
+https://datatracker.ietf.org/doc/html/rfc1918(REVIST THIS later) 
+if this is True then we realy this Addeses
+
+We check if the network address is rechable to us and then we store this in the VADROK array
+
+Update m_addr_processed and m_addr_rate_limited with the values from num_proc and num_rate_limit
+
+We log who we have recived this addresses from and how addresses we have received 
+
+Now we start adding this to addresses to ADDRMAN
+
+AddrMan::Add()(function wrapper)
+    
+
+
+
+AddrManImpl::Add_()
+            
+every address is passed with a 2 hour penality
+
+
+start looping through the adress vector 
+to get the actual address the source as in the peer that sent us this address and the timepenaty for the peer and then 
+we pass this to AdSingle 
+
+in AddSingle
+
+FIRST we check again if the addr is routable 
+nID this is an address id to be stored in addrman
+wE HAVE A class AddrInfo that has details about our address for example n_last attemp 
+
+what we are going to attempt first is to try and check if we have that address first
+and do this we call the Function fIND AND PASS THE our addr to it 
+
+find will try and find this address in a hashmap(unordered_map)
+if does find it 
+if we find this address return a pointer to AddrInfo 
+else retunr a nullpointer
+
+Then we go back to SingleAdd function
+
+If the addr and the source are the same then thats a self nnouncement no need to have a time_penalty
+
+pinfo is a reference pointing to an exsiting address inside our unordered hashmap 
+
+In that case serveral things need to be done 
+1. update its timestamp(im assuming if we have received it then maybe its been online recently)
+
+If an address was seen less than 24 hours ago then its curently onlie 
+and the currently online is a bool
+
+const auto update_interval{currently_online ? 1h : 24h};
+
+if currnelty onlie is set to hour ago else set to 24hours ago
+
+we check the ntime of this address that we stored by using the pointer
+pinfo->nTime 
+and then we take the addr.nTime - updated time (either 1 hour or 24 hours ) minus the time_penalty which is usually 2 hours 
+and if the time we have is really old meaning less that that the current time - minues the calculate we update the recorded time
+we update the current time we updated minues the timestamp 
+
+scenario 1
+pinfo->nTime = 30days ago 
+ 
+is our what we have stored lesser than the current addr time meaning (older than not newer)
+we only update the timestamp if its newer than what we have 
+
+for the snenario above we will do 6 hours - 1 hour - 2 hours = so this is 9 hours ago 
+and 30 days is less than or older than 9 hours ago so update the timestamp
+to be newer 
+
+We connected to address directly yesterday
+pinfo->nTime = 1 day ago (from our own connection)
+
+Peer sends us: addr.nTime = 10 days ago (old gossip)
+Check: Is 1 day ago < threshold?
+No — we keep our fresher timestamp.
+
+Service flag update
+
+ pinfo->nServices = ServiceFlags(pinfo->nServices | addr.nServices);
+
+keep what we have and add a new one of its new
+
+if pinnfo is 2 hours ago and then addrn.time is 1 hour ago there wont an update
+
+and this condition 
+
+1 hour is not less than or equal to 2 hours ago
+
+so we continue 
+
+only update timestamp is significalty newer 
+
+if the pinfo is in the Tried table then do not update anything, we have already connected to it 
+
+
+if (pinfo->nRefCount == ADDRMAN_NEW_BUCKETS_PER_ADDRESS)
+            return false;
+here we are checking how many times this addresse has been seen in the new table
+
+/** Maximum number of times an address can occur in the new table */
+static constexpr int32_t ADDRMAN_NEW_BUCKETS_PER_ADDRESS{8};
+
+the maximum number of times an address should appear in the address is 8 times 
+ meaning for some reason after 8 times we dint connect for it to be added to the new table 
+
+ 
+| Source peer | Same address | Different bucket |
+|-------------|--------------|------------------|
+| Peer A tells us about 1.2.3.4 | 1.2.3.4 | Bucket 5 |
+| Peer B tells us about 1.2.3.4 | 1.2.3.4 | Bucket 12 |
+| Peer C tells us about 1.2.3.4 | 1.2.3.4 | Bucket 27 |
+
+the nRefcout of this address would be 3 
+
+if (pinfo->nRefCount > 0) {
+            const int nFactor{1 << pinfo->nRefCount};
+            if (insecure_rand.randrange(nFactor) != 0) return false;
+        }
+
+i dont understand this part
+
+// stochastic test: previous nRefCount == N: 2^N times harder to increase it
+        if (pinfo->nRefCount > 0) {
+            const int nFactor{1 << pinfo->nRefCount};
+            if (insecure_rand.randrange(nFactor) != 0) return false;
+        }
+
+if we dont have a this addres
+we create a new adress info for it by calling Create
+and then update the timestamp to be the time - time_penalty
+
+retuning which bucket and which slot in a bucket
+we are going to use
+int nUBucket = pinfo->GetNewBucket(nKey, source, m_netgroupman);
+int nUBucketPos = pinfo->GetBucketPosition(nKey, true, nUBucket);
+we get a new bucket and choose a bucket potion as in s slot for this address
+it can be new or it can be an old address that didnt return false on the conditions above
+bool fInsert = vvNew[nUBucket][nUBucketPos] == -1;
+
+this is  bool that checks that we have an empty slot before we insert
+lests say.
+nuBucket is 0 and nUbucket is now 1
+nNew[0][1] == -1 
+ -1 == -1 which results in a true so 
+
+next we check that
+that - -1 the result of this 2d srray is not - 1 is not the same as the nId this is the id of the address
+if (vvNew[nUBucket][nUBucketPos] != nId) {
+we are that this slot does doesnt belong to the same to the same address 
+meanign the slot is not empty but we stli wasnt to indert an address
+
+
+ if (!fInsert) {  // Slot is NOT empty
+    AddrInfo& infoExisting = mapInfo[vvNew[nUBucket][nUBucketPos]];  // Get existing address info
+    
+    if (infoExisting.IsTerrible() ||                          // Existing is old/bad
+        (infoExisting.nRefCount > 1 && pinfo->nRefCount == 0)) {  // Existing has backup, incoming has none
+        fInsert = true;  // OK to overwrite
+    }
+}
+```
+
+## The two conditions for overwriting:
+
+| Condition | Meaning | Why overwrite? |
+|-----------|---------|----------------|
+| `infoExisting.IsTerrible()` | Existing address is old/failed | Bad address, replace with potentially better one |
+| `infoExisting.nRefCount > 1 && pinfo->nRefCount == 0` | Existing is in multiple buckets, incoming is in none | Existing has backups, incoming needs a spot |
+
+## Visual example:
+```
+Slot vvNew[5][10] contains address ID 42
+
+Address 42 (existing):
+  - nRefCount = 3 (in 3 buckets)
+  - Not terrible
+
+Address 55 (incoming):
+  - nRefCount = 0 (not in any bucket yet)
+
+Check: (3 > 1 && 0 == 0) = true
+
+Result: Overwrite! 
+  - Address 42 still exists in 2 other buckets
+  - Address 55 gets this slot (otherwise would have nowhere)
+
+that the point of this is to remove old addresses
+kickout addresses that are in alot of buckets and incoming has nothing
+
+if Insert is true clear the bucket positons
+increament the refcount of this address 
+the position should now be equal to the id 
+get asmp map for it 
+
+else delete
+
+
+This is my understanding of how we handle addresses that are old or stale 
+
+when siltering out adresse that are old 
+
+when we are reponsing/sending out message 
+
+and when we are chossing slots to insert our addresses
+
+one is reveting us from gossiping and sending old aresses 
+and the one is when there is a colission in addramn that we prioritize fresh addresses 
+this also has a benefit of if not in our addrman then we wont even send out 
+
+
