@@ -1,88 +1,205 @@
+Processing ADDR Messages 
+
+When do we Process an ADDR messages 
+1. When we send a getaddr request to a node we receive an addr message as a response 
+2. When a peer sends intermittently sends us few addresses they want to know about 
+3. When a peer is self announcing themselves to us 
+
+
+This is the if statement that i am going to be breaking down 
+
+void PeerManagerImpl::ProcessMessage(
+.........
+);
+
+if (msg_type == NetMsgType::ADDR || msg_type == NetMsgType::ADDRV2)
+
+const auto ser_params{
+            msg_type == NetMsgType::ADDRV2 ?
+            // Set V2 param so that the CNetAddr and CAddress
+            // unserialize methods know that an address in v2 format is coming.
+            CAddress::V2_NETWORK :
+            CAddress::V1_NETWORK,
+        };
+i am not sure about the code above 
+i would like to explore how we serialize and deserialize data 
+
+
+
 The first thing is check if this is an ADDRv2 message
 
-create an empty vector that will hold the address object(std::vector<CAddress> vAddr); 
+create an empty vector that will hold the address object
+(std::vector<CAddress> vAddr); 
 
-deserialize the data from the message(vRecv >> ser_params(vAddr);)
+deserialize the data from the message
+(vRecv >> ser_params(vAddr);)
 
-The peerr that we are receiving this addr message from should not be an outbound block-relay only peer 
-outbound meaning they connected to us and then block-relay-only are peers(do not gossip tx or addr messages)
 
+if (!SetupAddressRelay(pfrom, *peer)) {
+LogDebug(BCLog::NET, "ignoring %s message from %s peer=%d\n", msg_type, pfrom.ConnectionTypeAsString(), pfrom.GetId());
+return;}
+The peer that we are receiving this addr message from should not 
+be an outbound block-relay only peer 
+outbound meaning they connected to us 
+and then block-relay-only are peers(do not gossip tx or addr messages)
+
+
+if (vAddr.size() > MAX_ADDR_TO_SEND)
+{
+  Misbehaving(*peer, strprintf("%s message size = %u", msg_type, vAddr.size()));
+  return;
+}
 A peer should never send us more that 1000 addresses otherwise its misbehaving 
 
-We create another empty vector to hold new addresses (std::vector<CAddress> vAddrOk);
+(std::vector<CAddress> vAddrOk);
+We create another empty vector to hold new addresses
 
-and instantiate a variable for current time (const auto current_a_time{Now<NodeSeconds>()};)
 
-every peer has a refrence to a token bucket before incrementing or updating this peers tokens( this what is called rate limiting)
+and instantiate a variable for current time
+(const auto current_a_time{Now<NodeSeconds>()};)
 
-MAX_ADDR_PROCESSING_TOKEN_BUCKET this hold the tokens that is quivalent to the maximum number of address a peer should
-send us at a goiven time 
 
+every peer has a pointer to a token bucket before incrementing
+or updating this peers tokens( this what is called rate limiting)
+
+
+// Update/increment addr rate limiting bucket.
+        const auto current_time{GetTime<std::chrono::microseconds>()};
+        if (peer->m_addr_token_bucket < MAX_ADDR_PROCESSING_TOKEN_BUCKET) {
+            // Don't increment bucket if it's already full
+            const auto time_diff = std::max(current_time - peer->m_addr_token_timestamp, 0us);
+            const double increment = Ticks<SecondsDouble>(time_diff) * MAX_ADDR_RATE_PER_SECOND;
+            peer->m_addr_token_bucket = std::min<double>(peer->m_addr_token_bucket + increment, MAX_ADDR_PROCESSING_TOKEN_BUCKET);
+        }
+        peer->m_addr_token_timestamp = current_time;
+MAX_ADDR_PROCESSING_TOKEN_BUCKET
+this a static constexpr hold the tokens
+that is equivalent to the maximum number of address we can process from a peer 
+at a given time
 and for a getaddr response this is always 10001 
-
 We will process an address if we have enough tokens
 
-a peer is rate_limted if they dont have pemissions to send us unlimted number of addresses(const bool rate_limited = !pfrom.HasPermission(NetPermissionFlags::Addr);)
 
-we shuffle the vector that we store addtore addreses  that way its not possible to have a specific order of addresses in which we received form a peer
+const bool rate_limited = !pfrom.HasPermission(NetPermissionFlags::Addr);
+a peer is rate_limted if they don't have permissions
+to send us an unlimited number of addresses
 
+std::shuffle(vAddr.begin(), vAddr.end(), m_rng);
+we shuffle the vector that we store the addresses in 
+that way its not possible to have a specific order of addresses
+in which we received form a peer.
+
+
+for (CAddress& addr : vAddr)
 We start to process the addresses one by one
-
 As we start to process each address 
 
-- we start by check if this peer is rate limited 
-if a peers token is less than 1 maybe 0 and it is rate_limited true meaning we should receive an unlimted number of address from it 
-then this how we know we will relay on the tokens in the bucket
+ if (interruptMsgProc)
+                return;
+i do not know what this is 
+
+// Apply rate limiting.
+if (peer->m_addr_token_bucket < 1.0) 
+    if (rate_limited) {
+        ++num_rate_limit;
+        continue;
+  }
+
+- we start by check if this peer is rate limited
+if a peers token is less than 1 maybe 0 and it is
+rate_limited true meaning we should receive an unlimited
+number of address from it 
+then this how we know we will process an address based  
+on the tokens in the bucket
 we increment the variable number rate limit by 1 and then we continue 
 
-but if the token is more than or equal to 1 we decrement by 1 because we are starting to process one of its addresses
 
-if the address does not have service NODE_NETWORK and NODE_NETWORK_LIMITED
+else {
+peer->m_addr_token_bucket -= 1.0;
+}
+but if the token is more than or equal to 1 we decrement by 1 
+because we are starting to process one of its addresses.
 
-if the address is to old into the furture or 10 minutes into the future its udated to 5 days ago
 
+if (!MayHaveUsefulAddressDB(addr.nServices) && !HasAllDesirableServiceFlags(addr.nServices))
+                continue;
+if the address does not have service NODE_NETWORK 
+and NODE_NETWORK_LIMITED we continue
+
+if (addr.nTime <= NodeSeconds{100000000s} || addr.nTime > current_a_time + 10min) {
+    addr.nTime = current_a_time - 5 * 24h;}
+and if the address is to old into the future or 10 minutes 
+into the future its updated to 5 days ag.
+
+
+AddAddressKnown(*peer, addr);
 Next we attach that yes this address is known from this peer AddAddressKnown(*peer, addr);
 
+
+if (m_banman && (m_banman->IsDiscouraged(addr) || m_banman->IsBanned(addr))) {
+                // Do not process banned/discouraged addresses beyond remembering we received them
+                continue;
+            }
 If an address is banned or discourage then we will not process it 
 
-then we incremeber the number processed by 1
 
-an address should be part of our rechable network for example if an address is ipv4 and our rechable networks are only through onion 
-then rechable is false 
+++num_proc;
+then we increment the number processed by 1
 
-next check is the address is not too old , somewhat fresh just 10 minutes into the futureaddr.nTime > current_a_time - 10min
-we did not send a getaddr to this peer !peer->m_getaddr_sent
-that it sending us 10 or less than 10 addresses vAddr.size() <= 10
 
+const bool reachable{g_reachable_nets.Contains(addr)};
+an address should be part of our reachable network for example
+if an address is ipv4 and our reachable networks are only through onion 
+then reachable is false.
+
+
+if (addr.nTime > current_a_time - 10min && !peer->m_getaddr_sent && vAddr.size() <= 10 && addr.IsRoutable()) {
+// Relay to a limited number of other nodes
+RelayAddress(pfrom.GetId(), addr, reachable);
+}
+next check is the address is not too old ,
+somewhat fresh just 10 minutes into the future
+we did not send a getaddr to this peer 
+that it sending us 10 or less than 10 addresses
 and the address is Routable what is a Routable Address
 and an address is routable if its IsValid
 RFC918 eXAMPLE 
 https://datatracker.ietf.org/doc/html/rfc1918(REVIST THIS later) 
-if this is True then we realy this Addeses
+if this is True then we relay this Addresses
 
-We check if the network address is rechable to us and then we store this in the VADROK array
 
-Update m_addr_processed and m_addr_rate_limited with the values from num_proc and num_rate_limit
+if (reachable) {
+    vAddrOk.push_back(addr);
+      }
+We check if the network address is reachable to us
+and then we store this in the VADROK array
 
-We log who we have recived this addresses from and how addresses we have received 
+Update m_addr_processed
+and m_addr_rate_limited with the values from num_proc and num_rate_limit
 
+LogDebug(BCLog::NET, "Received addr: %u addresses (%u processed, %u rate-limited)
+from peer=%d\n",
+vAddr.size(), num_proc, num_rate_limit, pfrom.GetId());
+We log who we have received this addresses from and how addresses we have received 
+
+m_addrman.Add(vAddrOk, pfrom.addr, 2h);
 Now we start adding this to addresses to ADDRMAN
-
-AddrMan::Add()(function wrapper)
-    
-
-
+AddrManImpl::Add_()
+every address is passed with a 2 hour time_penalty
 
 AddrManImpl::Add_()
-            
-every address is passed with a 2 hour penality
-
-
-start looping through the adress vector 
-to get the actual address the source as in the peer that sent us this address and the timepenaty for the peer and then 
+int this function this is what will happen
+start looping through the address vector
+to get the actual address the source as in the peer
+that sent us this address and the time time_penalty for the peer and then 
 we pass this to AdSingle 
 
+
+
+
+
 in AddSingle
+
 
 FIRST we check again if the addr is routable 
 nID this is an address id to be stored in addrman

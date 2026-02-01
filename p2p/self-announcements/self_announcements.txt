@@ -1,0 +1,73 @@
+When do we send/receive addresses from our peers
+There are 3 mechanisms for this:
+1.Response to a GetAddr message 
+2. Periodic Unsolicited Address Relay
+3. Self -announcements 
+4.Response to a version message 
+
+Rate Limit Processing
+
+When we connect to a peer 
+- receive a version message from them 
+- we then send a getaddr message 
+( at this point the token limit for the bucket is set at 10001)
+- at some point this same peer will send us an addr message 
+- assuming they send us 1000 addresses 
+- we process this addr and decrement them by 1 per each address
+- so we go back to having one token in our bucket 
+- same peer sends us another addr message 
+- this time its the period Relay Address so they just want to send us 5 addresses 
+- this would happen like 10 minutes later 
+- this condition would now be true 
+peer->m_addr_token_bucket < MAX_ADDR_PROCESSING_TOKEN_BUCKET
+from the first addr message the m_addr_token_bucket was set to 1.0
+and the MAX_ADDR_PROCESSING_TOKEN_BUCKET is 1000
+so 1.0 < 1000
+and the m_addr_token_timestamp was set to the current time from the first loop 
+which was 10 minutes ago 
+the time difference would then be the current time now minutes ago
+bucket = min(1.0 + 6.0, 1000) = 61.0
+
+process 50 addresses -> bucket remaining tokens is now 11.0 
+
+so when the bucket is empty meaning no tokens then no address will be processed
+
+
+Address announcements mechanisms
+ThreadMessageHandler
+Theres is this thread that handles messages 
+My understanding is that this thread will actually pick up any messages that we have
+m_node list does have a list of nodes that we are connected to 
+we shuffle this list to prevent an attacker form knowing the order of our connections 
+we check that we ae connected to a node before checking the message we have received or sendMessages 
+if our node is the receiver of addr messages 
+If we are receiving an address we call ProcessMessages
+
+if our node is a sender of the messages 
+
+if we are sendMessages then call SendMessages 
+
+
+
+
+
+
+
+
+
+
+
+We'd want to limit an attacker from filling our Addrman with addresses
+using token bucket algo this can be limit
+so when a peer connects to us for the first time when we start processing an 
+addr message from them they have an intial token of 1.0 in their bucket 
+so as process a single address then more tokens are used up
+ideally more and more addresses lead to a decreases in the token for that peer 
+and since a single message can have upto 1000 addreses 
+
+so when the token gets to empty or the bucket is emoty we igonore that peer and wont
+process any addresses form them 
+
+but this is confusing because does the token increase or reduce when processing 
+the commit says when the bucket is empty but we increase the token when we process an address
+
