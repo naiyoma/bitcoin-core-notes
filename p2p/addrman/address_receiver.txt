@@ -199,51 +199,78 @@ we pass this to AdSingle
 
 
 in AddSingle
+note that add single is called by Add_ 
 
 
 FIRST we check again if the addr is routable 
+if (!addr.IsRoutable())
+        return false;
+
+
 nID this is an address id to be stored in addrman
-wE HAVE A class AddrInfo that has details about our address for example n_last attemp 
+nid_type nId;
 
-what we are going to attempt first is to try and check if we have that address first
-and do this we call the Function fIND AND PASS THE our addr to it 
 
+wE HAVE A class AddrInfo that has details about
+our address for example n_last attempt
+what we are going to attempt first is to try and check if we have that
+address first
+and do this we call the Function fIND AND PASS THE our addr to it
+AddrInfo* pinfo = Find(addr, &nId);
 find will try and find this address in a hashmap(unordered_map)
 if does find it 
 if we find this address return a pointer to AddrInfo 
 else retunr a nullpointer
 
+
+
 Then we go back to SingleAdd function
 
-If the addr and the source are the same then thats a self nnouncement no need to have a time_penalty
+If the addr and the source are the same then thats a 
+self announcement no need to have a time_penalty
+if (addr == source) {
+        time_penalty = 0s;
+}
 
-pinfo is a reference pointing to an exsiting address inside our unordered hashmap 
 
-In that case serveral things need to be done 
-1. update its timestamp(im assuming if we have received it then maybe its been online recently)
+pinfo is a reference pointing to an existing address inside our unordered hashmap
+if (pinfo) 
 
-If an address was seen less than 24 hours ago then its curently onlie 
+In that case several things need to be done
+1. update its timestamp(im assuming if we have 
+received it then maybe its been online recently)
+If an address was seen less than 24 hours ago then its currently online
 and the currently online is a bool
+const bool currently_online{NodeClock::now() - addr.nTime < 24h}
+
 
 const auto update_interval{currently_online ? 1h : 24h};
+if currently online is set to hour ago else set to 24hours ago
 
-if currnelty onlie is set to hour ago else set to 24hours ago
 
+if (pinfo->nTime < addr.nTime - update_interval - time_penalty) {
+            pinfo->nTime = std::max(NodeSeconds{0s}, addr.nTime - time_penalty);
+}
 we check the ntime of this address that we stored by using the pointer
 pinfo->nTime 
-and then we take the addr.nTime - updated time (either 1 hour or 24 hours ) minus the time_penalty which is usually 2 hours 
-and if the time we have is really old meaning less that that the current time - minues the calculate we update the recorded time
-we update the current time we updated minues the timestamp 
+and then we take the addr.nTime - updated time (either 1 hour or 24 hours ) minus
+the time_penalty which is usually 2 hours 
+and if the time we have is really old meaning less that that the
+current time - minus the calculation we update the recorded time
+we update the current time we updated minus the timestamp 
+
 
 scenario 1
 pinfo->nTime = 30days ago 
  
-is our what we have stored lesser than the current addr time meaning (older than not newer)
+is our timestamp  we have in addrman
+lesser than the current addr time meaning (older than not newer)
 we only update the timestamp if its newer than what we have 
 
-for the snenario above we will do 6 hours - 1 hour - 2 hours = so this is 9 hours ago 
+for the scenario above we will do
+6 hours - 1 hour - 2 hours = so this is 9 hours ago 
 and 30 days is less than or older than 9 hours ago so update the timestamp
-to be newer 
+to be newer.
 
 We connected to address directly yesterday
 pinfo->nTime = 1 day ago (from our own connection)
@@ -252,13 +279,17 @@ Peer sends us: addr.nTime = 10 days ago (old gossip)
 Check: Is 1 day ago < threshold?
 No — we keep our fresher timestamp.
 
+
 Service flag update
-
- pinfo->nServices = ServiceFlags(pinfo->nServices | addr.nServices);
-
 keep what we have and add a new one of its new
+pinfo->nServices = ServiceFlags(pinfo->nServices | addr.nServices);
 
-if pinnfo is 2 hours ago and then addrn.time is 1 hour ago there wont an update
+// do not update if no new information is present
+if (addr.nTime <= pinfo->nTime) {
+            return false;
+}
+if pinfo is 2 hours ago and then addrn.time is 1 hour ago
+there wont an update
 
 and this condition 
 
@@ -266,20 +297,22 @@ and this condition
 
 so we continue 
 
-only update timestamp is significalty newer 
+only update if timestamp is significantly newer 
 
-if the pinfo is in the Tried table then do not update anything, we have already connected to it 
+if (pinfo->fInTried)
+            return false;
+if the pinfo is in the Tried table then do not update anything,
+we have already connected to it 
 
 
 if (pinfo->nRefCount == ADDRMAN_NEW_BUCKETS_PER_ADDRESS)
             return false;
-here we are checking how many times this addresse has been seen in the new table
-
+here we are checking how many times this addresses has been seen in the new table
 /** Maximum number of times an address can occur in the new table */
 static constexpr int32_t ADDRMAN_NEW_BUCKETS_PER_ADDRESS{8};
 
 the maximum number of times an address should appear in the address is 8 times 
- meaning for some reason after 8 times we dint connect for it to be added to the new table 
+meaning for some reason after 8 times we dint connect for it to be added to the new table 
 
  
 | Source peer | Same address | Different bucket |
@@ -303,32 +336,33 @@ i dont understand this part
             if (insecure_rand.randrange(nFactor) != 0) return false;
         }
 
-if we dont have a this addres
-we create a new adress info for it by calling Create
+if we don't have a this address
+we create a new address info for it by calling Create
 and then update the timestamp to be the time - time_penalty
 
 retuning which bucket and which slot in a bucket
 we are going to use
 int nUBucket = pinfo->GetNewBucket(nKey, source, m_netgroupman);
 int nUBucketPos = pinfo->GetBucketPosition(nKey, true, nUBucket);
-we get a new bucket and choose a bucket potion as in s slot for this address
-it can be new or it can be an old address that didnt return false on the conditions above
+we get a new bucket and choose a bucket potion as in  slot for this address
+it can be new or it can be an old address that didn't return false on the conditions above
 bool fInsert = vvNew[nUBucket][nUBucketPos] == -1;
 
 this is  bool that checks that we have an empty slot before we insert
-lests say.
+lets say.
 nuBucket is 0 and nUbucket is now 1
 nNew[0][1] == -1 
  -1 == -1 which results in a true so 
 
 next we check that
-that - -1 the result of this 2d srray is not - 1 is not the same as the nId this is the id of the address
+that - -1 the result of this 2d srray is 
+not - 1 is not the same as the nId this is the id of the address
 if (vvNew[nUBucket][nUBucketPos] != nId) {
-we are that this slot does doesnt belong to the same to the same address 
-meanign the slot is not empty but we stli wasnt to indert an address
+we make sure this slot does doesn't belong to the same to the same address 
+meaning the slot is not empty but we still wan't to insert an address
 
 
- if (!fInsert) {  // Slot is NOT empty
+if (!fInsert) {  // Slot is NOT empty
     AddrInfo& infoExisting = mapInfo[vvNew[nUBucket][nUBucketPos]];  // Get existing address info
     
     if (infoExisting.IsTerrible() ||                          // Existing is old/bad
@@ -363,26 +397,32 @@ Result: Overwrite!
   - Address 55 gets this slot (otherwise would have nowhere)
 
 that the point of this is to remove old addresses
-kickout addresses that are in alot of buckets and incoming has nothing
+kick-out addresses that are in alot of buckets and incoming has nothing
 
-if Insert is true clear the bucket positons
-increament the refcount of this address 
+if (fInsert) 
+            ClearNew(nUBucket, nUBucketPos);
+            pinfo->nRefCount++;
+            vvNew[nUBucket][nUBucketPos] = nId;
+            const auto mapped_as{m_netgroupman.GetMappedAS(addr)};
+            LogDebug(BCLog::ADDRMAN, "Added %s%s to new[%i][%i]\n",
+if Insert is true clear the bucket positions
+increment the refcount of this address 
 the position should now be equal to the id 
 get asmp map for it 
 
-else delete
+else delete/do not insert
 
 
 This is my understanding of how we handle addresses that are old or stale 
 
-when siltering out adresse that are old 
+when overwrite out adresse that are old 
 
-when we are reponsing/sending out message 
+when we are responding/sending out message 
 
-and when we are chossing slots to insert our addresses
+and when we are choosing  slots to insert our addresses
 
-one is reveting us from gossiping and sending old aresses 
-and the one is when there is a colission in addramn that we prioritize fresh addresses 
+one is preventing us from gossiping and sending old addresses
+and the one is when there is a colision in addrman that we prioritize fresh addresses 
 this also has a benefit of if not in our addrman then we wont even send out 
 
 
