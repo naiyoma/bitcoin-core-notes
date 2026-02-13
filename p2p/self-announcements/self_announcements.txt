@@ -71,3 +71,19 @@ process any addresses form them
 but this is confusing because does the token increase or reduce when processing 
 the commit says when the bucket is empty but we increase the token when we process an address
 
+
+
+issue:
+
+Possible self announcement issue
+Two modes of sending:
+Initial self-announcement (m_next_local_addr_send == 0us): 
+Sent in its own dedicated message immediately after connection.
+Subsequent self-announcements: Added to the regular address relay queue via PushAddress(), sent alongside other addresses being gossiped.
+when do we self announce 
+
+getaddr is set after the first self announcement 
+
+when do we expect self announcement
+
+logs 
