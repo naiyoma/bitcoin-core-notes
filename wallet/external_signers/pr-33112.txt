@@ -1,0 +1,203 @@
+
+Bitcoin Core uses uses extrenal_signer -signer to interact with the external hardware wallets.
+Bitcoin Core will Delegate Keys custody and transaction signing to the hardware wallet.
+But will still perform PSBT construction and fee estimation. 
+So, in the case the external signer is signing transactions -> but some roles are still with Bitcoin Core.
+HWI -> This is a Python library and CLI that provides an interface across the hardware wallet and Bitcoin Core. 
+
+HWI -> enumerate -> List connected devices with their fingerprints 
+HWI -> getdescriptors -> Returns descriptors strings for a device 
+HWI -> signtx -> signs a PSBT 
+HWI -> displayaddress -> Shows an address on the hardware device 
+
+-singer = path to hwi
+
+Bitcoin core ----------> calls hwi enumerate --------> HWI CLI ---------> Hardware wallet 
+
+Set up  HWI
+https://github.com/bitcoin-core/HWI?tab=readme-ov-file#install
+Desktop/HWI
+
+Set up Trezor 
+https://github.com/trezor/trezor-firmware
+source .venv/bin/activate 
+cd core
+./emu.py
+
+On the HWI window
+/Desktop/HWI (master)$
+hwi -t trezor --emulator enumerate
+[{"type": "trezor", "path": "udp:127.0.0.1:21324", "label": null, "model": "trezor_t_simulator", "needs_pin_sent": false, "needs_passphrase_sent": false, "fingerprint": "bff7dec8"}]
+
+On bitcoin-core-cli regtest
+
+./build/bin/bitcoind -regtest -signer=/home/ubuntu/hwi-wrapper.sh -daemon
+
+bitcoin-cli -regtest enumeratesigners
+{
+  "signers": [
+    {
+      "fingerprint": "bff7dec8",
+      "name": "trezor_t_simulator"
+    }
+  ]
+}
+
+Master key for our HD wallet 
+
+Use QT
+bitcoin-qt -regtest -signer=/home/ubuntu/hwi-wrapper.sh -reindex
+
+Create a wallet, To interact with an external signer we can either use QT or CLI 
+
+
+Qt GUI  ──┐
+           ├──→  Bitcoin Core wallet  ──→  hwi-wrapper.sh  ──→  Trezor emulator
+RPC CLI ──┘
+
+
+
+
+
+
+
+ExternalSigner()
+// An ExtrenalSigner object represents a connect device
+// m_command path to my hwi-wrapper.sh script
+//m_chain - the chain i am on regtest , testnet , or mainnet
+// m_fingerprint - bff7dec8 is the device master key fingerprint
+//m_name - the name of the device  
+NetworkArg()
+//NetworkArg() returns the chain argument to be passed to the external signer commander
+// e.g --chain regtest
+
+
+Enumerate()
+//Enumerate() called when hwi enumerate is called to get a list of connected devices
+// first, we check the error  field
+// then we check the fingerprint field, it represents, and if it's missing
+// Constructs an External Signer object pushed into the signers vector
+
+
+DisplayAddress() 
+//Display the address on the physical device by calling display address command
+GetDescriptors()
+//GetDescriptors() is used to get retutn the decriptors which bitcoin core can then import into the wallet.
+SignTransaction()
+// finnaly, we sign the psbt
+
+
+src/qt/walletcontroller.cpp
+
+We have an interface.cpp
+std::vector<std::unique_ptr<interfaces::ExternalSigner>> listExternalSigners() override
+
+
+A vector that stores external signers 
+So when we create a wallet in Qt using an external signer 
+It calls this list
+void CreateWalletActivity::create()
+{} 
+  
+
+It's like bitcoin-core only expects one external signer at a time
+
+
+Look at this 
+// The underlying code supports multiple signers std::vector<std::unique_ptr<interfaces::ExternalSigner>> signers; // But Qt explicitly blocks it if (signers.size() > 1) { QMessageBox::critical(nullptr, tr("Too many external signers found"), ...); signers.clear(); // throws away everything }
+src/qt/createwalletdialog.cpp
+
+In rpc/wallet.cpp
+static RPCHelpMan createwallet()
+
+External signer is by default false 
+
+#ifdef ENABLE_EXTERNAL_SIGNER
+       flags |= WALLET_FLAG_EXTERNAL_SIGNER;
+#else
+       throw JSONRPCError(RPC_WALLET_ERROR, "Compiled without external signing support (required for external signing)");
+#endif
+
+So, when this flag is set, what happens next 
+Once this flag is set we then go to src/wallet.cpp
+
+In createwallet function
+// Private keys must be disabled for an external signer wallet
+
+ScriptPubKeyMan -> Will manage Public keys and addresses
+
+if ((wallet_creation_flags & WALLET_FLAG_EXTERNAL_SIGNER) || !(wallet_creation_flags & (WALLET_FLAG_DISABLE_PRIVATE_KEYS | WALLET_FLAG_BLANK_WALLET))) { walletInstance->SetupDescriptorScriptPubKeyMans(); }
+
+If the external signer is true, then set up theScriptPubKeyManager 
+
+DescriptorScriptPubKeyMan& CWallet::LoadDescriptorScriptPubKeyMan(uint256 id, WalletDescriptor& desc)
+{
+   DescriptorScriptPubKeyMan* spk_manager;
+   if (IsWalletFlagSet(WALLET_FLAG_EXTERNAL_SIGNER)) {
+       spk_manager = new ExternalSignerScriptPubKeyMan(*this, desc, m_keypool_size);
+
+
+If this is we check the flag is set and that overrides the signing behaviour and calls the external signer instead
+assert(!IsWalletFlagSet(WALLET_FLAG_EXTERNAL_SIGNER)); // Make a seed CKey seed_key = GenerateRandomKey();
+
+We don't make a seed forextrenal signer, so that's the work of the external signer 
+
+void CWallet::SetupDescriptorScriptPubKeyMans()
+{
+   AssertLockHeld(cs_wallet);
+
+
+   if (!IsWalletFlagSet(WALLET_FLAG_EXTERNAL_SIGNER)) {
+       if (!RunWithinTxn(GetDatabase(), /*process_desc=*/"setup descriptors", [&](WalletBatch& batch) EXCLUSIVE_LOCKS_REQUIRED(cs_wallet){
+           SetupOwnDescriptorScriptPubKeyMans(batch);
+           return true;
+       })) throw std::runtime_error("Error: cannot process db transaction for descriptors setup");
+   } else {
+
+If the external signer is set then the external signer should be the one generating the seeds 
+
+
+This on
+
+
+
+## The full picture
+```
+createwallet(external_signer=true)
+      │
+      ▼
+Validate: private_keys must be disabled ──→ fail if not
+      │
+      ▼
+Set WALLET_FLAG_EXTERNAL_SIGNER bit in flags
+      │
+      ▼
+SetupDescriptorScriptPubKeyMans()
+      │
+      ├── normal wallet → GenerateRandomKey() → own seed
+      │
+      └── external signer → hwi getdescriptors → import Trezor xpubs
+                                │
+                                ▼
+                    ExternalSignerScriptPubKeyMan   ←  signing delegated to HWI
+                    keypoolsize: 4000 derived from xpub
+
+
+
+
+In the wallet
+WALLET_FLAG_AVOID_REUSE
+Ont avoid reuse is immutable 
+Meaning once the wallet is created, this flag be chnagd 
+
+
+
+
+Immutability means thats we can create a wallet and then use a flag to make that flag change from one state to another 
+
+
+ 
+
+ 
+
+
