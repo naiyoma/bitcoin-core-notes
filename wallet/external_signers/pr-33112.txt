@@ -196,6 +196,27 @@ Meaning once the wallet is created, this flag be chnagd
 Immutability means thats we can create a wallet and then use a flag to make that flag change from one state to another 
 
 
+Issues:
+
+-Tests, not sure the others suggested are needed 
+- How multiple signers 
+- How lists are different in qt and bitcoind
+- Missing signer behaviour
+
+what to test next 
+
+# Fund the wallet
+./build/bin/bitcoin-cli -rpcwallet=test_priv_key getnewaddress
+
+# Mine to it  
+./build/bin/bitcoin-cli -regtest generatetoaddress 101 <address>
+
+# Try to send — what happens?
+./build/bin/bitcoin-cli -rpcwallet=test_priv_key sendtoaddress <address> 0.1
+
+
+
+
  
 
  
