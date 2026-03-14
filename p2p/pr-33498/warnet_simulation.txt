@@ -1,0 +1,24 @@
+Add a Warnet/Minikube simulation that empirically demonstrates the
+zombie address persistence problem introduced by https://github.com/bitcoin/bitcoin/pull/33498
+timestamp overwriting.
+
+The simulation:
+- Deploys a 20-node regtest network using a custom Bitcoin Core image
+  built from the naiyoma/bitcoin branch with PR #33498 changes
+- Fills each node's addrman with ~1000 unique addresses per node
+  (100.x.x.1, 101.x.x.1, etc.) to ensure genuine addr exchange
+- Injects 100 dead addresses (1.2.3.1-100) into tank-0000
+- Advances mocktime 20 days to simulate address aging
+- Cycles peer connections to trigger fresh getaddr exchanges
+- Monitors timestamp changes before and after each cycle
+
+Key findings:
+- With whitelist=addr@0.0.0.0/0, the 24h GetAddr response cache is
+  bypassed via GetAddressesUnsafe(), enabling fresh addr responses
+- After getaddr exchanges, a subset of 1.2.3.x addresses on downstream
+  nodes show timestamps reset to near-current time (~0-2 hours old)
+  instead of the expected ~20 days, confirming PR #33498's timestamp
+  overwriting rescues addresses from IsTerrible() eviction threshold
+- Without the fix, dead addresses would persist indefinitely in addrman
+
+Network config: 20 nodes, regtest, custom image naiyoma/bitcoin:99.0.1
