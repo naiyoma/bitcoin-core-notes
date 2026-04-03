@@ -37,3 +37,45 @@ For Tor peer:
 
 Δ = +18 hours
 t → 6.75 days
+
+Step2 
+Quantize (bucket)
+if we have 
+bucket = 12 hours
+
+ipv4
+5.5 days -> bucket -----> 5.5 (this stays as it is)
+Tor
+6.75 -> round it down -> 6.5 days 
+
+for ipv4 
+5.5 days 
+for 
+tor
+6.5 days 
+
+without the bucket
+5.5 and 6.75
+
+with bucket
+5.5 vs 6. 5
+
+ipv4 
+
+A: 32 -> 31
+B: 1 -> 2
+C: 6 -> 5.5
+D: 5 -> 6
+
+Bucket (12h):
+
+[31, 2, 5.5, 6]
+
+A: 32 -> 33
+B: 1 -> 0.5
+C: 6 -> 7
+D: 5 -> 4
+
+Bucket:
+
+[33, 0.5, 7, 4]
