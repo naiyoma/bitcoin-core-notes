@@ -75,3 +75,19 @@ print_view("IPV4 VIEW", ipv4_view)
 print_view("TOR_VIEW", tor_view)
 
 
+# Averaging attack simulation
+print("\n=== AVERAGING ATTACK (50 queries) ===")
+print("-" * 50)
+# With fuzzing (random noise) - attacker averages
+import random
+
+for addr, original in addresses:
+    samples = [original + random.randint(-MAX_OFFSET, MAX_OFFSET) for _ in range(50)]
+    recovered = sum(samples) / len(samples)
+    error = abs(recovered - original) / 3600
+    print(f"{addr}: fuzzing recovered within ±{error:.1f}h of real timestamp")
+
+# With deterministic distortion - attacker gets same value every time
+print()
+for addr, original, delta, final in ipv4_view:
+    print(f"{addr}: deterministic → always sees {(now-final)/86400:.2f}d, real={( now-original)/86400:.2f}d, irrecoverable")
