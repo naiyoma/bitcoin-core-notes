@@ -1,81 +1,123 @@
-Deterministic Per-REquestor Distortion 
-
-Each peer sees a consistent but slightly modified timestamps 
-same same different with the cache period
-different peer a different distorted modified timestamps
-
-B. The next step is quantization (Bucketing)
-
-After we shift the time we round it int chucks or different buckets
-so we take a timestamp 
-1773923947 
-and then next we have something like 
-17390000 to the nearest 6 hours of this time 
-
-so a bucketing window of 6 hours would be something like
-0h --------> 6hrs -------------> 12hrs --------------------> 18hrs 
-if the bucket is 6hours then this becomes 6 hours
-all the time between 6 ----------------- 12 hours 
-so 
-t = floor(t/bucket) * bucket 
-
-so if we have 
-10:23 pm then we have 
- 6 hour bucket 
 
 
-Original timestamp
-t = 6 days old
-Step 1: Apply distortion (Δ)
+# +/-24hourTimestamp Distortion
 
-For IPv4 peer:
+This approach applies a **deterministic offset** to timestamps and then reduces precision via rounding off a selected window in a 6 hour bucket.
 
-Δ = -12 hours
-t → 5.5 days
+---
 
-For Tor peer:
+## Determinism
 
-Δ = +18 hours
-t → 6.75 days
+The transformation is deterministic in the sense that:
 
-Step2 
-Quantize (bucket)
-if we have 
-bucket = 12 hours
+- Within the same cache window (~24 hours),
+- The same requesting peer receives:
+  - the same address list  
+  - the same transformed timestamps  
 
-ipv4
-5.5 days -> bucket -----> 5.5 (this stays as it is)
-Tor
-6.75 -> round it down -> 6.5 days 
+i:e 
 
-for ipv4 
-5.5 days 
-for 
-tor
-6.5 days 
+same peer + same address -> same distortion
 
-without the bucket
-5.5 and 6.75
 
-with bucket
-5.5 vs 6. 5
+---
 
-ipv4 
+## Offset Range
 
-A: 32 -> 31
-B: 1 -> 2
-C: 6 -> 5.5
-D: 5 -> 6
+Given:
 
-Bucket (12h):
 
-[31, 2, 5.5, 6]
+MAX_OFFSET = 24 hours
 
-A: 32 -> 33
-B: 1 -> 0.5
-C: 6 -> 7
-D: 5 -> 4
 
-Bucket:
+The distortion range becomes:
 
-[33, 0.5, 7, 4]
+
+[-24h, +24h]
+
+
+This means:
+
+- A timestamp may appear up to **1 day older**
+- Or up to **1 day newer**
+
+---
+
+## Bucketing
+
+After applying the offset, timestamps are **rounded into fixed time buckets** (e.g., 6-hour intervals).
+
+This:
+
+- reduces timestamp precision  
+- prevents fine-grained reconstruction (“defuzzing”)  
+- removes ordering and spacing signals  
+
+---
+
+## Formula
+
+1. `h = H(addr, peer, secret)`  
+2. `h_mod = h % (2 * MAX_OFFSET)`  
+3. `Δ = h_mod - MAX_OFFSET`  
+4. `t' = old_timestamp + Δ`  
+5. `t_final = round(t' / BUCKET) * BUCKET`  
+
+---
+
+
+
+A key question is whether this is equivalent to simple fuzzing.
+
+For example:
+
+- Original timestamp: 13 days  
+- One view: 12 days  
+- Another view: 14 days  
+
+An attacker might attempt to:
+
+- assume a ± offset  
+- take the midpoint  
+- try to correlate across views  
+
+---
+
+Distinction from Fuzzing
+
+This approach differs from naive fuzzing because:
+
+- The offset is **deterministic per (address, peer)**  
+- Different addresses shift **independently**  
+- Different peers see **different distortions**  
+
+As a result:
+
+- There is no single global offset to reverse  
+- Matching becomes **ambiguous rather than exact**  
+
+---
+
+## Limitations
+
+This does **not completely eliminate correlation**, but:
+
+- reduces timestamp precision  
+- breaks exact matching  
+- significantly increases false positives  
+- lowers attacker confidence  
+
+---
+
+## Parameter Considerations
+
+Larger offsets (e.g., 48h or 72h) may:
+
+- further reduce correlation  
+- but degrade timestamp usefulness  
+
+So there is a trade-off between:
+
+
+privacy  network utility
+
