@@ -1,0 +1,39 @@
+Mutations 
+
+I noticed that  mutation-core analyze  always defaults to 
+./build/src/test/test_bitcoin
+Running rm -rf build && cmake -B build && cmake --build build                                                                                                                           
+* 759 MUTANTS *                                                                                                                                                                         
+[1/759] Analyzing addrman.mutant.293.cpp                                                                                                                                                
+Running: cmake --build build -j4 && ./build/src/test/test_bitcoin && CI_FAILFAST_TEST_LEAVE_DANGLING=1 ./build/test/functional/test_runner.py -F                                        
+KILLED ✅                                                                                                                                                                               
+[2/759] Analyzing addrman.mutant.552.cpp                                                                                                                                                
+Running: cmake --build build -j4 && ./build/src/test/test_bitcoin && CI_FAILFAST_TEST_LEAVE_DANGLING=1 ./build/test/functional/test_runner.py -F 
+
+I have briefly looked at analyze.py 
+command = f"{build_command} && ./build/src/test/test_bitcoin --run_test={test_to_run}"
+Would it make sense to update the default path to ./build/bin/test_bitcoin
+
+
+When running
+ mutation-core analyze 
+without specifying -c, uses ./build/src/test/test_bitcoin. 
+mutation-core analyze -j=4                                                                                    
+                                                                                                                                                                                        
+                                                                                                                                                                                        
+Running rm -rf build && cmake -B build && cmake --build build                                                                                                                           
+* 759 MUTANTS *                                                                                                                                                                         
+[1/759] Analyzing addrman.mutant.293.cpp                                                                                                                                                
+Running: cmake --build build -j4 && ./build/src/test/test_bitcoin && CI_FAILFAST_TEST_LEAVE_DANGLING=1 ./build/test/functional/test_runner.py -F                                        
+KILLED ✅                                                                                                                                                                               
+[2/759] Analyzing addrman.mutant.552.cpp                                                                                                                                                
+Running: cmake --build build -j4 && ./build/src/test/test_bitcoin && CI_FAILFAST_TEST_LEAVE_DANGLING=1 ./build/test/functional/test_runner.py -F         
+
+However, on my setup using the current Bitcoin Core CMake build system, the test binary is located at ./build/bin/test_bitcoin 
+
+
+where to start
+Generate mutants 
+for 
+Getaddr
+Addr mutants
