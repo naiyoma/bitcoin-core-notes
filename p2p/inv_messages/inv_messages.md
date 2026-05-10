@@ -86,13 +86,17 @@ and then check the TXRelay Pointer
 
 `auto tx_relay = peer.GetTxRelay();`  
 
-returns either a TxRelay* or nullptr
+returns either a `TxRelay* or nullptr`
 
-tx_relay->m_bloom_filter = nullptr; we set the bloom filter to be null indicating that we are clearing the bloom filter
-tx_relay->m_relay_txs = true; this is the its the field in TxRelay Struct becomes true so we can still relay this to the peer
+`tx_relay->m_bloom_filter = nullptr;`
+we set the bloom filter to be null indicating that we are clearing the bloom filter
+`tx_relay->m_relay_txs = true; `
+this is the its the field in TxRelay Struct becomes true so we can still relay this to the peer
 
-pfrom.m_bloom_filter_loaded = false; --bloom filter is no longer for this peer 
-pfrom.m_relays_txs = true; -- cnode fields for relaying trannsactions also becomes true 
+`pfrom.m_bloom_filter_loaded = false;`
+--bloom filter is no longer for this peer 
+`pfrom.m_relays_txs = true; `
+-- cnode fields for relaying trannsactions also becomes true 
 
 
 
