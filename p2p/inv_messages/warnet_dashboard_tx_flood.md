@@ -176,4 +176,4 @@ Three pieces of evidence aligned in time:
 In one of my runs, the kubectl monitor captured:
 
 
-![CPU spike during surge](inv_messages.png)
+![CPU spike during surge](graphana_tx_flood.png)
