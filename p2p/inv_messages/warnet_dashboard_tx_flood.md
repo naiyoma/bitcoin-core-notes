@@ -177,3 +177,50 @@ In one of my runs, the kubectl monitor captured:
 
 
 ![CPU spike during surge](graphana_tx_flood.png)
+
+
+
+
+Thanks for the detailed write-up!
+
+
+I attempted to create a Warnet scenario that floods a peer with transactions. My aim was to fill up the mempool and bloat the peer queue with transactions.
+
+This is my setup:
+`tank-0000`: fills its own mempool with about  ~10k transactions, which it announces to its other peers.
+`tank-0001`: has 35 silent listener peers, receives transactions, and queues them to be relayed.
+
+What I observed:
+CPU saturation on tank-0001's `b-msghand` thread. I sampled` /proc/<pid>/task/<tid>/`stat every second and saw `b-msghand` peak at 98% during the tx surge:
+
+```
+13:07:28  b-msghand=  0.5%                                                                                                                                                              
+13:07:29  b-msghand=  1.0%                                                                                                                                                              
+13:07:31  b-msghand= 22.5%                                                                                                                                                              
+13:07:33  b-msghand= 98.0%                                                                                                                                                              
+13:07:34  b-msghand= 38.0%                                                                                                                                                              
+13:07:36  b-msghand=  3.0%                                                                                                                                                              
+13:07:37  b-msghand= 18.0%                                                                                                                                                              
+13:07:39  b-msghand=  3.5%                                                                                                                                                              
+13:07:40  b-msghand= 11.0%                                                                                                                                                              
+13:07:41  b-msghand=  4.0%                                                                                                                                                              
+13:07:43  b-msghand= 11.0%                                                                                                                                                              
+13:07:44  b-msghand=  3.0%                                                                                                                                                              
+13:07:45  b-msghand=  2.0%                                                                                                                                                              
+13:07:47  b-msghand=  2.5%  
+
+```
+On my dashboard 
+
+I could see that the mempool size for the peers did increase
+
+<img width="727" height="294" alt="mempool" src="https://gist.github.com/user-attachments/assets/b58c71b2-4cc0-476d-bfca-f50db602e09e" />
+
+
+the number of transactions queued on tank-0001 FOR each peer, not the number of transactions inside the peers.
+
+
+<img width="1482" height="383" alt="per-peer-queue" src="https://gist.github.com/user-attachments/assets/7444bd53-3da3-4f97-a188-96d6fdb387af" />
+
+
+the script does have some discrepancies but I think the observation is expected and I am yet to measure this scenario against the suggested approach
