@@ -26,6 +26,7 @@ After I applied this PR to the scenario, the per-peer queue, ping time, and ping
 
 I also attempted to measure the CPU cost of msg during the whole process. I did observe that before this PR I could see a couple of bursts, while after, I could see only one. I think this single burst happens during sorting, whereas the other one was happening as we repeatedly kept sorting each queue.
 
+```
 +11:58:58  b-msghand=  0.0%
 +11:58:59  b-msghand= 84.0%
 +11:59:00  b-msghand= 99.0%
@@ -38,6 +39,7 @@ I also attempted to measure the CPU cost of msg during the whole process. I did 
 +11:59:10  b-msghand=  0.0%
 +11:59:11  b-msghand=  1.0%
 +11:59:12  b-msghand=  9.0%
+```
 
 
 
