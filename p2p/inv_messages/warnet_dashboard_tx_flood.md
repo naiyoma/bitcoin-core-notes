@@ -224,3 +224,21 @@ the number of transactions queued on tank-0001 FOR each peer, not the number of 
 
 
 the script does have some discrepancies but I think the observation is expected and I am yet to measure this scenario against the suggested approach
+
+
+So instead of:
+
+peer A has 70 tokens
+peer B has 70 tokens
+peer C has 70 tokens
+
+the proposal is more like:
+
+global inbound bucket:
+    14 tx/sec
+    capacity 420
+
+global outbound bucket:
+    faster refill
+
+And all peers share that budget.
