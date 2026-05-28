@@ -15,13 +15,13 @@ The second graph shows the ping time for the nodes.
 Both graphs show the progression from initial connection through the point where transactions are queued and relayed.
 
 
-![alt text](path/to/before_pr2.png)
+![alt text](before_pr2.png)
 
 
 
 After I applied this PR to the scenario, the per-peer queue, ping time, and ping_wait for my peers improved decreased across peers
 
-![alt text](path/to/after_pr4.png)
+![alt text](after_pr4.png)
 
 
 I also attempted to measure the CPU cost of msg during the whole process. I did observe that before this PR I could see a couple of bursts, while after, I could see only one. I think this single burst happens during sorting, whereas the other one was happening as we repeatedly kept sorting each queue.
