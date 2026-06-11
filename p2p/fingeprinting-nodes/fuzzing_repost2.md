@@ -3,41 +3,57 @@
 ![Alt text](fuzz_data.png)
 
 
-this is an explanation for the table above
+this is an exaplantion for the table above 
 
-1. I have two separate tables(not shared here ) in my database from when i crawled the network 
+disclaimer: this is based on old data that i have previously matched to try and find bridges
+I had two separate tables(not shared here ) in my database from when i crawled the network 
 one storing the IPV4 nodes and the other one storing the tor nodes - each together with their peers info
 
-2. from the table above i have the following the first row : is the baseline and i was paring nodes with no fuzzing 
+this is what each row means 
 
 ![Alt text](first_row.png)
 
-using the tables i mentioned in step 1 i pared the nodes on the tables based on shared peers and then shared timestamps, without fuzzing the timestamps
-i measured 3 things 
-- Pairs sharing >=1 peer I found 1660 ( tor, ipv4 ) pairs that share at least one address
+- `fuzzing_range`: this is the fuzzing range that i applied to all peers at first i did not apply any fuzzing 
+and then i used [+/-5] seconds, [+/-5] minutes, [+/-5] days 
+- `timestamp_matching` : this is the correlation window, this is what i was using to find matching timestamp
+    - `exact` - means i was checking the exact timestamp match between two peers.
+    - `WF`- means i was checking timestamp matches between peers within the fuzzing range like [-/+5] seconds.
+    - `W2F` - means i was checking the timestamp matches between peers within 2x of the fuzzing window for example [-/+10] seconds 
+- `total_pairs_m>=1` - this is the total number of (ipv4, tor) pairs that had at least one matching peer 
+- `pairs_with_n>=1` - this is the total of pairs that have at least one address  one matching timestamp
+- `tor_n>=5(exactly 1 suspect)` - this is the total number of tor nodes that had exactly one ipv4 node that they share 5 or more timestamp matches with.
+- `tor_n>=5(2+suspects)` - this is the total number of tor nodes that have 2 or more ipv4 nodes that they share  >=5 ( 5 or more peers ) with the exact matching timestamp 
+ 
+
+
+
+I pared the nodes  on shared peers and then shared timestamps, without fuzzing the timestamps
+and measured 3 things 
+- Pairs sharing >=1 peers,   found 1660 ( tor, ipv4 ) pairs that share at least one address.
 - Pairs with >=1 exact-timestamp - of those 1660 , 1410 also have at least one shared peer whose timestamp matches exactly 
-- Unique tor nodes(possible bridges) - 55 tor nodes have exactly one ipv4 node with which they share the >=5( 5 or more peers ) with the exact matching timestamps.
-- another set of tor nodes - tor_n>=5 (2+ suspects) - we have 45 tor nodes that have 2 or more ipv4 nodes which they share >=5 ( 5 or more peers ) with the exact matching timestamp 
+- tor_n>=5(exactly 1 suspect)(possible bridges) - 55 tor nodes have exactly one ipv4 node with which they share the >=5( 5 or more peers ) with the exact matching timestamps.
+- tor_n>=5(2+suspects)(another set of tor nodes)  - wI have 45 tor nodes that have 2 or more ipv4 nodes which they share >=5 ( 5 or more peers ) with the exact matching timestamp 
 
 
-3. Then i introduced fuzzing 
 
-![Alt text](seconds_row.png)
+Then i introduced fuzzing 
 
-Next from the original table in step 1, i applied fuzzing to all the timestamps in that table based on a given range ( each range independent). Each timestamp is shifted by its own random amount, independently - and independently on the tor and ipv4 sides (the same node serving a different fuzzed value per interface).
+![Alt text](second_row.png)
+
+Next  i applied fuzzing to all the peer timestamps in that table based on a given range. Each timestamp is shifted by its own random amount, independently - and independently on the tor and ipv4 sides (the same node serving a different fuzzed value per interface).
 so for this row i fuzzed within the range of [+/-5] seconds 
 
 and then i ran the correlation analysis again 
 
 note that pairs sharing >= 1 peers this doesn't change, since this is dependant on peers share and not timestamp sharing so it says the same 1,660 
 
-so after fuzzing with a [+/-5] seconds window 
+After fuzzing with a [+/-5] seconds window 
 - exact -first i check exact timestamp matches -timestamps that are exactly the same after fuzzing
 - +F(wf) - i check timestamps that are withing the fuzzing ranges itself so[+/-5] seconds
 - +2f (w2f) - timestamps that are within twice the range so here (+/-10 seconds). this models an attacker who widens the window to undo the fuzz - since two values each shifted by up to +/-F can differ by up to 2F, this is the realistic attacker, not the exact check.
 
 the output for this was 
-for exact row ( this is me checking shared timestamp exact shared timestamps even after fuzzing  )
+for exact column ( this is me checking shared timestamp exact shared timestamps even after fuzzing  )
 - 1,660 - pairs sharing at least one peer ( this remains unchanged )
 - 404 - pairs with at least one share peers whose timestamp are exactly the same
 - 3 tor nodes with exactly one ipv4 node sharing >=5 peers whose timestamps are exactly the same 
