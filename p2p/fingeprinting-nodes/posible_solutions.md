@@ -360,3 +360,30 @@ because if all nodes have this noice introduced them and all timestamps are ater
 
 my only issue with this solution is an attacker bieng able to scrate a script where each timestamp instead of looking for eaxact timestamp it lloks for 
 match +or minues one day 
+
+
+which is the best range to fuzz
+
+anything between 1 day and 5 days 
+in my own addrman 
+what is the range of address in my own addrman and how does this inform the choices that i make
+
+
+  Now just wait a few hours (up to a day), then take snap2 and run the diff:
+
+  CLI="./build/bin/bitcoin-cli"    # re-set this if you open a fresh SSH session
+  echo "{\"t\":$(date +%s),\"d\":$($CLI getrawaddrman)}" > snap2.json
+  python3 ~/attribute_terrible_updates.py snap1.json snap2.json
+
+  That's the whole thing — it'll print the buckets (gossip / getaddr-leak / getaddr-forced / untouched).
+
+  Two small reminders:
+  - CLI and the files live in the shell/dir you're in now (~/bitcoin). If you disconnect and SSH back in, re-run the CLI=... line and take snap2 from ~/bitcoin so it sits next to
+  snap1.
+  - snap1.json will still be there when you come back, so you don't need to keep the session open.
+
+  If you'd rather have snap2 fire automatically in, say, 4 hours so you don't have to remember, run this now and walk away:
+
+  echo 'echo "{\"t\":$(date +%s),\"d\":$(./build/bin/bitcoin-cli getrawaddrman)}" > ~/bitcoin/snap2.json' | at now + 4 hours
+
+  Then just come back later and run the python3 ~/attribute_terrible_updates.py snap1.json snap2.json line. Want me to explain reading the output once you have it?
