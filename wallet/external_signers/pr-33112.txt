@@ -20,7 +20,7 @@ Desktop/HWI
 
 Set up Trezor 
 https://github.com/trezor/trezor-firmware
-source .venv/bin/activate 
+source .venv/bin/activate
 cd core
 ./emu.py
 

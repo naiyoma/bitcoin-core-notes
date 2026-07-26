@@ -1,0 +1,475 @@
+KILLED ✅                                                                                                                                                                               
+                                                                                                                                                                                        
+MUTATION SCORE: 69.09%                                                                                                                                                                  
+Surviving mutants:                                                                                                                                                                      
+diff --git a/src/net_processing.cpp b/muts-pr-net_processing-5632-5718/net_processing.mutant.23.cpp                                                                                     
+index 50ea62ff05..d7ad445924 100644                                                                                                                                                     
+--- a/src/net_processing.cpp                                                                                                                                                            
++++ b/muts-pr-net_processing-5632-5718/net_processing.mutant.23.cpp                                                                                                                     
+@@ -5682,7 +5682,7 @@ void PeerManagerImpl::ProcessAddrs(std::string_view msg_type, CNode& pfrom, Peer                                                                                  
+         if (!MayHaveUsefulAddressDB(addr.nServices) && !HasAllDesirableServiceFlags(addr.nServices))                                                                                   
+             continue;                                                                                                                                                                  
+                                                                                                                                                                                        
+-        if (addr.nTime <= NodeSeconds{100000000s} || addr.nTime > current_time + 10min) {                                                                                              
++        if (addr.nTime < NodeSeconds{100000000s} || addr.nTime > current_time + 10min) {                                                                                               
+             addr.nTime = std::chrono::time_point_cast<std::chrono::seconds>(current_time - 5 * 24h);                                                                                   
+         }                                                                                                                                                                              
+         AddAddressKnown(peer, addr);                                                                                                                                                   
+
+--------------
+diff --git a/src/net_processing.cpp b/muts-pr-net_processing-5632-5718/net_processing.mutant.52.cpp
+index 50ea62ff05..686f1e1733 100644
+--- a/src/net_processing.cpp
++++ b/muts-pr-net_processing-5632-5718/net_processing.mutant.52.cpp
+@@ -5710,7 +5710,7 @@ void PeerManagerImpl::ProcessAddrs(std::string_view msg_type, CNode& pfrom, Peer
+     if (vAddr.size() < 1000) peer.m_getaddr_sent = false;
+  
+     // AddrFetch: Require multiple addresses to avoid disconnecting on self-announcements
+-    if (pfrom.IsAddrFetchConn() && vAddr.size() > 1) {
++    if (pfrom.IsAddrFetchConn() && vAddr.size() <= 1) {
+         LogDebug(BCLog::NET, "addrfetch connection completed, %s", pfrom.DisconnectMsg());
+         pfrom.fDisconnect = true;
+     }
+
+--------------
+diff --git a/src/net_processing.cpp b/muts-pr-net_processing-5632-5718/net_processing.mutant.28.cpp
+index 50ea62ff05..d0e854db8c 100644
+--- a/src/net_processing.cpp
++++ b/muts-pr-net_processing-5632-5718/net_processing.mutant.28.cpp
+@@ -5682,7 +5682,7 @@ void PeerManagerImpl::ProcessAddrs(std::string_view msg_type, CNode& pfrom, Peer
+         if (!MayHaveUsefulAddressDB(addr.nServices) && !HasAllDesirableServiceFlags(addr.nServices))
+             continue;
+  
+-        if (addr.nTime <= NodeSeconds{100000000s} || addr.nTime > current_time + 10min) {
++        if (addr.nTime <= NodeSeconds{100000000s} && addr.nTime > current_time + 10min) {
+             addr.nTime = std::chrono::time_point_cast<std::chrono::seconds>(current_time - 5 * 24h);
+         }
+         AddAddressKnown(peer, addr);
+--------------
+diff --git a/src/net_processing.cpp b/muts-pr-net_processing-5632-5718/net_processing.mutant.38.cpp
+index 50ea62ff05..72f79beb7b 100644
+--- a/src/net_processing.cpp
++++ b/muts-pr-net_processing-5632-5718/net_processing.mutant.38.cpp
+@@ -5692,7 +5692,7 @@ void PeerManagerImpl::ProcessAddrs(std::string_view msg_type, CNode& pfrom, Peer
+         }
+         ++num_proc;
+         const bool reachable{g_reachable_nets.Contains(addr)};
+-        if (addr.nTime > current_time - 10min && !peer.m_getaddr_sent && vAddr.size() <= 10 && addr.IsRoutable()) {
++        if (addr.nTime >= current_time - 10min && !peer.m_getaddr_sent && vAddr.size() <= 10 && addr.IsRoutable()) {
+             // Relay to a limited number of other nodes
+             RelayAddress(pfrom.GetId(), addr, reachable);
+         }
+
+--------------
+diff --git a/src/net_processing.cpp b/muts-pr-net_processing-5632-5718/net_processing.mutant.47.cpp
+index 50ea62ff05..cbc48d5a69 100644
+--- a/src/net_processing.cpp
++++ b/muts-pr-net_processing-5632-5718/net_processing.mutant.47.cpp
+@@ -5707,7 +5707,7 @@ void PeerManagerImpl::ProcessAddrs(std::string_view msg_type, CNode& pfrom, Peer
+              vAddr.size(), num_proc, num_rate_limit, pfrom.GetId());
+  
+     m_addrman.Add(vAddrOk, pfrom.addr, /*time_penalty=*/2h);
+-    if (vAddr.size() < 1000) peer.m_getaddr_sent = false;
++    if (vAddr.size() <= 1000) peer.m_getaddr_sent = false;
+  
+     // AddrFetch: Require multiple addresses to avoid disconnecting on self-announcements
+     if (pfrom.IsAddrFetchConn() && vAddr.size() > 1) {
+
+--------------
+diff --git a/src/net_processing.cpp b/muts-pr-net_processing-5632-5718/net_processing.mutant.21.cpp
+index 50ea62ff05..0df9889581 100644
+--- a/src/net_processing.cpp
++++ b/muts-pr-net_processing-5632-5718/net_processing.mutant.21.cpp
+@@ -5679,7 +5679,7 @@ void PeerManagerImpl::ProcessAddrs(std::string_view msg_type, CNode& pfrom, Peer
+         // We only bother storing full nodes, though this may include
+         // things which we would not make an outbound connection to, in
+         // part because we may make feeler connections to them.
+-        if (!MayHaveUsefulAddressDB(addr.nServices) && !HasAllDesirableServiceFlags(addr.nServices))
++        if (!MayHaveUsefulAddressDB(addr.nServices) || !HasAllDesirableServiceFlags(addr.nServices))
+             continue;
+  
+         if (addr.nTime <= NodeSeconds{100000000s} || addr.nTime > current_time + 10min) {
+--------------
+diff --git a/src/net_processing.cpp b/muts-pr-net_processing-5632-5718/net_processing.mutant.50.cpp
+index 50ea62ff05..9573f126b0 100644
+--- a/src/net_processing.cpp
++++ b/muts-pr-net_processing-5632-5718/net_processing.mutant.50.cpp
+@@ -5710,7 +5710,7 @@ void PeerManagerImpl::ProcessAddrs(std::string_view msg_type, CNode& pfrom, Peer
+     if (vAddr.size() < 1000) peer.m_getaddr_sent = false;
+  
+     // AddrFetch: Require multiple addresses to avoid disconnecting on self-announcements
+-    if (pfrom.IsAddrFetchConn() && vAddr.size() > 1) {
++    if (pfrom.IsAddrFetchConn() && vAddr.size() >= 1) {
+         LogDebug(BCLog::NET, "addrfetch connection completed, %s", pfrom.DisconnectMsg());
+         pfrom.fDisconnect = true;
+     }
+--------------
+diff --git a/src/net_processing.cpp b/muts-pr-net_processing-5632-5718/net_processing.mutant.4.cpp
+index 50ea62ff05..fb39d5bdf1 100644
+--- a/src/net_processing.cpp
++++ b/muts-pr-net_processing-5632-5718/net_processing.mutant.4.cpp
+@@ -5650,7 +5650,7 @@ void PeerManagerImpl::ProcessAddrs(std::string_view msg_type, CNode& pfrom, Peer
+  
+     // Update/increment addr rate limiting bucket.
+     const auto current_time{NodeClock::now()};
+-    if (peer.m_addr_token_bucket < MAX_ADDR_PROCESSING_TOKEN_BUCKET) {
++    if (peer.m_addr_token_bucket <= MAX_ADDR_PROCESSING_TOKEN_BUCKET) {
+         // Don't increment bucket if it's already full
+         const auto time_diff{current_time - peer.m_addr_token_timestamp};
+         const double increment{std::max(Ticks<SecondsDouble>(time_diff), 0.0) * MAX_ADDR_RATE_PER_SECOND};
+
+--------------
+diff --git a/src/net_processing.cpp b/muts-pr-net_processing-5632-5718/net_processing.mutant.12.cpp
+index 50ea62ff05..7ec173277b 100644
+--- a/src/net_processing.cpp
++++ b/muts-pr-net_processing-5632-5718/net_processing.mutant.12.cpp
+@@ -5664,7 +5664,7 @@ void PeerManagerImpl::ProcessAddrs(std::string_view msg_type, CNode& pfrom, Peer
+     std::shuffle(vAddr.begin(), vAddr.end(), m_rng);
+     for (CAddress& addr : vAddr)
+     {
+-        if (interruptMsgProc)
++        if (1==0)
+             return;
+  
+         // Apply rate limiting.
+
+--------------
+diff --git a/src/net_processing.cpp b/muts-pr-net_processing-5632-5718/net_processing.mutant.45.cpp
+index 50ea62ff05..becc3778a5 100644
+--- a/src/net_processing.cpp
++++ b/muts-pr-net_processing-5632-5718/net_processing.mutant.45.cpp
+@@ -5697,7 +5697,7 @@ void PeerManagerImpl::ProcessAddrs(std::string_view msg_type, CNode& pfrom, Peer
+             RelayAddress(pfrom.GetId(), addr, reachable);
+         }
+         // Do not store addresses outside our network
+-        if (reachable) {
++        if (1==0) {
+             vAddrOk.push_back(addr);
+         }
+     }
+
+--------------
+diff --git a/src/net_processing.cpp b/muts-pr-net_processing-5632-5718/net_processing.mutant.22.cpp
+index 50ea62ff05..7d0ba04721 100644
+--- a/src/net_processing.cpp
++++ b/muts-pr-net_processing-5632-5718/net_processing.mutant.22.cpp
+@@ -5680,7 +5680,7 @@ void PeerManagerImpl::ProcessAddrs(std::string_view msg_type, CNode& pfrom, Peer
+         // things which we would not make an outbound connection to, in
+         // part because we may make feeler connections to them.
+         if (!MayHaveUsefulAddressDB(addr.nServices) && !HasAllDesirableServiceFlags(addr.nServices))
+-            continue;
++            break;
+  
+         if (addr.nTime <= NodeSeconds{100000000s} || addr.nTime > current_time + 10min) {
+             addr.nTime = std::chrono::time_point_cast<std::chrono::seconds>(current_time - 5 * 24h);
+
+--------------
+diff --git a/src/net_processing.cpp b/muts-pr-net_processing-5632-5718/net_processing.mutant.0.cpp
+index 50ea62ff05..f21541c868 100644
+--- a/src/net_processing.cpp
++++ b/muts-pr-net_processing-5632-5718/net_processing.mutant.0.cpp
+@@ -5639,7 +5639,7 @@ void PeerManagerImpl::ProcessAddrs(std::string_view msg_type, CNode& pfrom, Peer
+         return;
+     }
+  
+-    if (vAddr.size() > MAX_ADDR_TO_SEND)
++    if (vAddr.size() >= MAX_ADDR_TO_SEND)
+     {
+         Misbehaving(peer, strprintf("%s message size = %u", msg_type, vAddr.size()));
+         return;
+
+--------------
+diff --git a/src/net_processing.cpp b/muts-pr-net_processing-5632-5718/net_processing.mutant.33.cpp
+index 50ea62ff05..50a80921be 100644
+--- a/src/net_processing.cpp
++++ b/muts-pr-net_processing-5632-5718/net_processing.mutant.33.cpp
+@@ -5682,7 +5682,7 @@ void PeerManagerImpl::ProcessAddrs(std::string_view msg_type, CNode& pfrom, Peer
+         if (!MayHaveUsefulAddressDB(addr.nServices) && !HasAllDesirableServiceFlags(addr.nServices))
+             continue;
+  
+-        if (addr.nTime <= NodeSeconds{100000000s} || addr.nTime > current_time + 10min) {
++        if (1==0) {
+             addr.nTime = std::chrono::time_point_cast<std::chrono::seconds>(current_time - 5 * 24h);
+         }
+         AddAddressKnown(peer, addr);
+
+--------------
+diff --git a/src/net_processing.cpp b/muts-pr-net_processing-5632-5718/net_processing.mutant.35.cpp
+index 50ea62ff05..8000c93349 100644
+--- a/src/net_processing.cpp
++++ b/muts-pr-net_processing-5632-5718/net_processing.mutant.35.cpp
+@@ -5686,7 +5686,7 @@ void PeerManagerImpl::ProcessAddrs(std::string_view msg_type, CNode& pfrom, Peer
+             addr.nTime = std::chrono::time_point_cast<std::chrono::seconds>(current_time - 5 * 24h);
+         }
+         AddAddressKnown(peer, addr);
+-        if (m_banman && (m_banman->IsDiscouraged(addr) || m_banman->IsBanned(addr))) {
++        if (m_banman && (m_banman->IsDiscouraged(addr) && m_banman->IsBanned(addr))) {
+             // Do not process banned/discouraged addresses beyond remembering we received them
+             continue;
+         }
+--------------                                                                                                                                                                          
+diff --git a/src/net_processing.cpp b/muts-pr-net_processing-5632-5718/net_processing.mutant.54.cpp                                                                                     
+index 50ea62ff05..a17602b007 100644
+--- a/src/net_processing.cpp
++++ b/muts-pr-net_processing-5632-5718/net_processing.mutant.54.cpp
+@@ -5712,7 +5712,7 @@ void PeerManagerImpl::ProcessAddrs(std::string_view msg_type, CNode& pfrom, Peer
+     // AddrFetch: Require multiple addresses to avoid disconnecting on self-announcements
+     if (pfrom.IsAddrFetchConn() && vAddr.size() > 1) {
+         LogDebug(BCLog::NET, "addrfetch connection completed, %s", pfrom.DisconnectMsg());
+-        pfrom.fDisconnect = true;
++        pfrom.fDisconnect = false;
+     }
+ }
+  
+
+--------------
+diff --git a/src/net_processing.cpp b/muts-pr-net_processing-5632-5718/net_processing.mutant.51.cpp
+index 50ea62ff05..baf8da4883 100644
+--- a/src/net_processing.cpp
++++ b/muts-pr-net_processing-5632-5718/net_processing.mutant.51.cpp
+@@ -5710,7 +5710,7 @@ void PeerManagerImpl::ProcessAddrs(std::string_view msg_type, CNode& pfrom, Peer
+     if (vAddr.size() < 1000) peer.m_getaddr_sent = false;
+  
+     // AddrFetch: Require multiple addresses to avoid disconnecting on self-announcements
+-    if (pfrom.IsAddrFetchConn() && vAddr.size() > 1) {
++    if (pfrom.IsAddrFetchConn() && vAddr.size() < 1) {
+         LogDebug(BCLog::NET, "addrfetch connection completed, %s", pfrom.DisconnectMsg());
+         pfrom.fDisconnect = true;
+     }
+
+--------------
+diff --git a/src/net_processing.cpp b/muts-pr-net_processing-5632-5718/net_processing.mutant.36.cpp
+index 50ea62ff05..232f9a8a71 100644
+--- a/src/net_processing.cpp
++++ b/muts-pr-net_processing-5632-5718/net_processing.mutant.36.cpp
+@@ -5688,7 +5688,7 @@ void PeerManagerImpl::ProcessAddrs(std::string_view msg_type, CNode& pfrom, Peer
+         AddAddressKnown(peer, addr);
+         if (m_banman && (m_banman->IsDiscouraged(addr) || m_banman->IsBanned(addr))) {
+             // Do not process banned/discouraged addresses beyond remembering we received them
+-            continue;
++            break;
+         }
+         ++num_proc;
+         const bool reachable{g_reachable_nets.Contains(addr)};
+
+--------------
+Report saved to diff_not_killed.json
+
+
+so this are all the mutatant that survived form this analysis 
+
+bcore-mutation analyze -f muts-pr-net_processing-5632-5718 -c "cmake --build build --target bitcoind -j$(nproc) && ./build/test/functional/test_runner.py p2p_addr_relay.py p2p_addrv2_relay.py p2p_getaddr_caching.py p2p_addrfetch.py feature_addrman.py rpc_net.py p2p_seednode.py p2p_dns_seeds.py rpc_setban.py p2p_disconnect_ban.py" -t 600
+
+1.first thing is to check that this are not being tested anywhere else int he code because, i think theres a unit test that is checking for banned or discouraged addresses, it would only make sense to test this if they dont already exist in the tests
+
+2.should arranged in order of priority and importance 
+3. what is possible to be tested in a functional test and what cant , what requires a unit test , fuzz test etc 
+
+
+after now this is the new mutation score
+                                                                                                                                                                                      
+KILLED ✅                                                                                                                                                                               
+                                                                                                                                                                                        
+MUTATION SCORE: 76.36%                                                                                                                                                                  
+Surviving mutants:                                                                                                                                                                      
+diff --git a/src/net_processing.cpp b/muts-pr-net_processing-5632-5718/net_processing.mutant.23.cpp                                                                                     
+index 50ea62ff05..d7ad445924 100644                                                                                                                                                     
+--- a/src/net_processing.cpp                                                                                                                                                            
++++ b/muts-pr-net_processing-5632-5718/net_processing.mutant.23.cpp                                                                                                                     
+@@ -5682,7 +5682,7 @@ void PeerManagerImpl::ProcessAddrs(std::string_view msg_type, CNode& pfrom, Peer                                                                                  
+         if (!MayHaveUsefulAddressDB(addr.nServices) && !HasAllDesirableServiceFlags(addr.nServices))                                                                                   
+             continue;                                                                                                                                                                  
+                                                                                                                                                                                        
+-        if (addr.nTime <= NodeSeconds{100000000s} || addr.nTime > current_time + 10min) {                                                                                              
++        if (addr.nTime < NodeSeconds{100000000s} || addr.nTime > current_time + 10min) {                                                                                               
+             addr.nTime = std::chrono::time_point_cast<std::chrono::seconds>(current_time - 5 * 24h);                                                                                   
+         }                                                                                                                                                                              
+         AddAddressKnown(peer, addr);                                                                                                                                                   
+                                                                                                                                                                                        
+--------------                            
+diff --git a/src/net_processing.cpp b/muts-pr-net_processing-5632-5718/net_processing.mutant.28.cpp                                                                                     
+index 50ea62ff05..d0e854db8c 100644                                                                                                                                                     
+--- a/src/net_processing.cpp                                                                                                                                                            
++++ b/muts-pr-net_processing-5632-5718/net_processing.mutant.28.cpp                                                                                                                     
+@@ -5682,7 +5682,7 @@ void PeerManagerImpl::ProcessAddrs(std::string_view msg_type, CNode& pfrom, Peer                                                                                  
+         if (!MayHaveUsefulAddressDB(addr.nServices) && !HasAllDesirableServiceFlags(addr.nServices))                                                                                   
+             continue;                                                                                                                                                                  
+                                                                                                                                                                                        
+-        if (addr.nTime <= NodeSeconds{100000000s} || addr.nTime > current_time + 10min) {                                                                                              
++        if (addr.nTime <= NodeSeconds{100000000s} && addr.nTime > current_time + 10min) {                                                                                              
+             addr.nTime = std::chrono::time_point_cast<std::chrono::seconds>(current_time - 5 * 24h);                                                                                   
+         }                                                                                                                                                                              
+         AddAddressKnown(peer, addr);                                                                                                                                                   
+                                        
+
+                                        diff --git a/src/net_processing.cpp b/muts-pr-net_processing-5632-5718/net_processing.mutant.38.cpp                                                                                     
+index 50ea62ff05..72f79beb7b 100644                                                                                                                                                     
+--- a/src/net_processing.cpp                                                                                                                                                            
++++ b/muts-pr-net_processing-5632-5718/net_processing.mutant.38.cpp                                                                                                                     
+@@ -5692,7 +5692,7 @@ void PeerManagerImpl::ProcessAddrs(std::string_view msg_type, CNode& pfrom, Peer                                                                                  
+         }                                                                                                                                                                              
+         ++num_proc;                                                                                                                                                                    
+         const bool reachable{g_reachable_nets.Contains(addr)};
+-        if (addr.nTime > current_time - 10min && !peer.m_getaddr_sent && vAddr.size() <= 10 && addr.IsRoutable()) {
++        if (addr.nTime >= current_time - 10min && !peer.m_getaddr_sent && vAddr.size() <= 10 && addr.IsRoutable()) {
+             // Relay to a limited number of other nodes
+             RelayAddress(pfrom.GetId(), addr, reachable);
+         }
+
+
+--------------
+diff --git a/src/net_processing.cpp b/muts-pr-net_processing-5632-5718/net_processing.mutant.47.cpp
+index 50ea62ff05..cbc48d5a69 100644
+--- a/src/net_processing.cpp
++++ b/muts-pr-net_processing-5632-5718/net_processing.mutant.47.cpp
+@@ -5707,7 +5707,7 @@ void PeerManagerImpl::ProcessAddrs(std::string_view msg_type, CNode& pfrom, Peer
+              vAddr.size(), num_proc, num_rate_limit, pfrom.GetId());
+  
+     m_addrman.Add(vAddrOk, pfrom.addr, /*time_penalty=*/2h);
+-    if (vAddr.size() < 1000) peer.m_getaddr_sent = false;
++    if (vAddr.size() <= 1000) peer.m_getaddr_sent = false;
+  
+     // AddrFetch: Require multiple addresses to avoid disconnecting on self-announcements
+     if (pfrom.IsAddrFetchConn() && vAddr.size() > 1) {
+
+diff --git a/src/net_processing.cpp b/muts-pr-net_processing-5632-5718/net_processing.mutant.21.cpp
+index 50ea62ff05..0df9889581 100644
+--- a/src/net_processing.cpp
++++ b/muts-pr-net_processing-5632-5718/net_processing.mutant.21.cpp
+@@ -5679,7 +5679,7 @@ void PeerManagerImpl::ProcessAddrs(std::string_view msg_type, CNode& pfrom, Peer
+         // We only bother storing full nodes, though this may include
+         // things which we would not make an outbound connection to, in
+         // part because we may make feeler connections to them.
+-        if (!MayHaveUsefulAddressDB(addr.nServices) && !HasAllDesirableServiceFlags(addr.nServices))
++        if (!MayHaveUsefulAddressDB(addr.nServices) || !HasAllDesirableServiceFlags(addr.nServices))
+             continue;
+  
+         if (addr.nTime <= NodeSeconds{100000000s} || addr.nTime > current_time + 10min) {
+
+--------------
+diff --git a/src/net_processing.cpp b/muts-pr-net_processing-5632-5718/net_processing.mutant.4.cpp
+index 50ea62ff05..fb39d5bdf1 100644
+--- a/src/net_processing.cpp
++++ b/muts-pr-net_processing-5632-5718/net_processing.mutant.4.cpp
+@@ -5650,7 +5650,7 @@ void PeerManagerImpl::ProcessAddrs(std::string_view msg_type, CNode& pfrom, Peer
+  
+     // Update/increment addr rate limiting bucket.
+     const auto current_time{NodeClock::now()};
+-    if (peer.m_addr_token_bucket < MAX_ADDR_PROCESSING_TOKEN_BUCKET) {
++    if (peer.m_addr_token_bucket <= MAX_ADDR_PROCESSING_TOKEN_BUCKET) {
+         // Don't increment bucket if it's already full
+         const auto time_diff{current_time - peer.m_addr_token_timestamp};
+         const double increment{std::max(Ticks<SecondsDouble>(time_diff), 0.0) * MAX_ADDR_RATE_PER_SECOND};
+
+--------------
+diff --git a/src/net_processing.cpp b/muts-pr-net_processing-5632-5718/net_processing.mutant.12.cpp
+index 50ea62ff05..7ec173277b 100644
+--- a/src/net_processing.cpp
++++ b/muts-pr-net_processing-5632-5718/net_processing.mutant.12.cpp
+@@ -5664,7 +5664,7 @@ void PeerManagerImpl::ProcessAddrs(std::string_view msg_type, CNode& pfrom, Peer
+     std::shuffle(vAddr.begin(), vAddr.end(), m_rng);
+     for (CAddress& addr : vAddr)
+     {
+-        if (interruptMsgProc)
++        if (1==0)
+             return;
+  
+         // Apply rate limiting.
+
+--------------
+diff --git a/src/net_processing.cpp b/muts-pr-net_processing-5632-5718/net_processing.mutant.45.cpp
+index 50ea62ff05..becc3778a5 100644
+--- a/src/net_processing.cpp
++++ b/muts-pr-net_processing-5632-5718/net_processing.mutant.45.cpp
+@@ -5697,7 +5697,7 @@ void PeerManagerImpl::ProcessAddrs(std::string_view msg_type, CNode& pfrom, Peer
+             RelayAddress(pfrom.GetId(), addr, reachable);
+         }
+         // Do not store addresses outside our network
+-        if (reachable) {
++        if (1==0) {
+             vAddrOk.push_back(addr);
+         }
+     }
+
+--------------
+diff --git a/src/net_processing.cpp b/muts-pr-net_processing-5632-5718/net_processing.mutant.22.cpp
+index 50ea62ff05..7d0ba04721 100644
+--- a/src/net_processing.cpp
++++ b/muts-pr-net_processing-5632-5718/net_processing.mutant.22.cpp
+@@ -5680,7 +5680,7 @@ void PeerManagerImpl::ProcessAddrs(std::string_view msg_type, CNode& pfrom, Peer
+         // things which we would not make an outbound connection to, in
+         // part because we may make feeler connections to them.
+         if (!MayHaveUsefulAddressDB(addr.nServices) && !HasAllDesirableServiceFlags(addr.nServices))
+-            continue;
++            break;
+  
+         if (addr.nTime <= NodeSeconds{100000000s} || addr.nTime > current_time + 10min) {
+             addr.nTime = std::chrono::time_point_cast<std::chrono::seconds>(current_time - 5 * 24h);
+--------------                                                                                                                                                        17:32:15 [21/1958]
+diff --git a/src/net_processing.cpp b/muts-pr-net_processing-5632-5718/net_processing.mutant.0.cpp
+index 50ea62ff05..f21541c868 100644
+--- a/src/net_processing.cpp
++++ b/muts-pr-net_processing-5632-5718/net_processing.mutant.0.cpp
+@@ -5639,7 +5639,7 @@ void PeerManagerImpl::ProcessAddrs(std::string_view msg_type, CNode& pfrom, Peer
+         return;
+     }
+  
+-    if (vAddr.size() > MAX_ADDR_TO_SEND)
++    if (vAddr.size() >= MAX_ADDR_TO_SEND)
+     {
+         Misbehaving(peer, strprintf("%s message size = %u", msg_type, vAddr.size()));
+         return;
+
+--------------
+diff --git a/src/net_processing.cpp b/muts-pr-net_processing-5632-5718/net_processing.mutant.33.cpp
+index 50ea62ff05..50a80921be 100644
+--- a/src/net_processing.cpp
++++ b/muts-pr-net_processing-5632-5718/net_processing.mutant.33.cpp
+@@ -5682,7 +5682,7 @@ void PeerManagerImpl::ProcessAddrs(std::string_view msg_type, CNode& pfrom, Peer
+         if (!MayHaveUsefulAddressDB(addr.nServices) && !HasAllDesirableServiceFlags(addr.nServices))
+             continue;
+  
+-        if (addr.nTime <= NodeSeconds{100000000s} || addr.nTime > current_time + 10min) {
++        if (1==0) {
+             addr.nTime = std::chrono::time_point_cast<std::chrono::seconds>(current_time - 5 * 24h);
+         }
+         AddAddressKnown(peer, addr);
+--------------
+diff --git a/src/net_processing.cpp b/muts-pr-net_processing-5632-5718/net_processing.mutant.35.cpp
+index 50ea62ff05..8000c93349 100644
+--- a/src/net_processing.cpp
++++ b/muts-pr-net_processing-5632-5718/net_processing.mutant.35.cpp
+@@ -5686,7 +5686,7 @@ void PeerManagerImpl::ProcessAddrs(std::string_view msg_type, CNode& pfrom, Peer
+             addr.nTime = std::chrono::time_point_cast<std::chrono::seconds>(current_time - 5 * 24h);
+         }
+         AddAddressKnown(peer, addr);
+-        if (m_banman && (m_banman->IsDiscouraged(addr) || m_banman->IsBanned(addr))) {
++        if (m_banman && (m_banman->IsDiscouraged(addr) && m_banman->IsBanned(addr))) {
+             // Do not process banned/discouraged addresses beyond remembering we received them
+             continue;
+         }
+
+--------------
+diff --git a/src/net_processing.cpp b/muts-pr-net_processing-5632-5718/net_processing.mutant.36.cpp
+index 50ea62ff05..232f9a8a71 100644
+--- a/src/net_processing.cpp
++++ b/muts-pr-net_processing-5632-5718/net_processing.mutant.36.cpp
+@@ -5688,7 +5688,7 @@ void PeerManagerImpl::ProcessAddrs(std::string_view msg_type, CNode& pfrom, Peer
+         AddAddressKnown(peer, addr);
+         if (m_banman && (m_banman->IsDiscouraged(addr) || m_banman->IsBanned(addr))) {
+             // Do not process banned/discouraged addresses beyond remembering we received them
+-            continue;
++            break;
+         }
+         ++num_proc;
+         const bool reachable{g_reachable_nets.Contains(addr)};
+
+--------------
+Report saved to diff_not_killed.json
+Executing command: git restore src/net_processing.cpp
+
+bcore-mutation analyze -f muts-pr-net_processing-5632-5718 -c "cmake --build build --target bitcoind -j$(nproc) && ./build/test/functional/test_runner.py p2p_addr_relay.py p2p_addrv2_relay.py p2p_getaddr_caching.py p2p_addrfetch.py feature_addrman.py rpc_net.py p2p_seednode.py p2p_dns_seeds.py rpc_setban.py p2p_disconnect_ban.py" -t 600
+1.first thing is to check that this are not being tested anywhere else int he code because, i think theres a unit test that is checking for banned or discouraged addresses, it would only make sense to test this if they dont already exist in the tests
+
+2.should arranged in order of priority and importance 
+3. what is possible to be tested in a functional test and what cant , what requires a unit test , fuzz test etc 

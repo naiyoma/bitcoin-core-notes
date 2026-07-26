@@ -1,35 +1,3 @@
-Mutations 
-
-I noticed that  mutation-core analyze  always defaults to 
-./build/src/test/test_bitcoin
-Running rm -rf build && cmake -B build && cmake --build build                                                                                                                           
-* 759 MUTANTS *                                                                                                                                                                         
-[1/759] Analyzing addrman.mutant.293.cpp                                                                                                                                                
-Running: cmake --build build -j4 && ./build/src/test/test_bitcoin && CI_FAILFAST_TEST_LEAVE_DANGLING=1 ./build/test/functional/test_runner.py -F                                        
-KILLED ✅                                                                                                                                                                               
-[2/759] Analyzing addrman.mutant.552.cpp                                                                                                                                                
-Running: cmake --build build -j4 && ./build/src/test/test_bitcoin && CI_FAILFAST_TEST_LEAVE_DANGLING=1 ./build/test/functional/test_runner.py -F 
-
-I have briefly looked at analyze.py 
-command = f"{build_command} && ./build/src/test/test_bitcoin --run_test={test_to_run}"
-Would it make sense to update the default path to ./build/bin/test_bitcoin
-
-
-When running
- mutation-core analyze 
-without specifying -c, uses ./build/src/test/test_bitcoin. 
-mutation-core analyze -j=4                                                                                    
-                                                                                                                                                                                        
-                                                                                                                                                                                        
-Running rm -rf build && cmake -B build && cmake --build build                                                                                                                           
-* 759 MUTANTS *                                                                                                                                                                         
-[1/759] Analyzing addrman.mutant.293.cpp                                                                                                                                                
-Running: cmake --build build -j4 && ./build/src/test/test_bitcoin && CI_FAILFAST_TEST_LEAVE_DANGLING=1 ./build/test/functional/test_runner.py -F                                        
-KILLED ✅                                                                                                                                                                               
-[2/759] Analyzing addrman.mutant.552.cpp                                                                                                                                                
-Running: cmake --build build -j4 && ./build/src/test/test_bitcoin && CI_FAILFAST_TEST_LEAVE_DANGLING=1 ./build/test/functional/test_runner.py -F         
-
-However, on my setup using the current Bitcoin Core CMake build system, the test binary is located at ./build/bin/test_bitcoin 
 
 
 where to start
@@ -37,3 +5,489 @@ Generate mutants
 for 
 Getaddr
 Addr mutants
+
+
+
+ All five below are mutation-confirmed: the functional suite (p2p_addr_relay.py, p2p_addrv2_relay.py, p2p_getaddr_caching.py) passes even with the safety logic broken.                
+                                                                                             
+  ┌─────┬───────────────────────────────────┬────────────────────────────────────────────────────────────────────────────┬─────────────────────────────────────────────────────────┐    
+  │  #  │             Location              │                            Unasserted behavior                             │                 Test that would fill it                 │
+  ├─────┼───────────────────────────────────┼────────────────────────────────────────────────────────────────────────────┼─────────────────────────────────────────────────────────┤
+  │ A   │ ProcessAddrs                      │ Addresses lacking useful service flags (!MayHaveUsefulAddressDB &&         │ Send an addr with nServices=0; assert not relayed and   │
+  │     │ net_processing.cpp:5682-83        │ !HasAllDesirableServiceFlags) are dropped                                  │ not stored (getnodeaddresses)                           │
+  ├─────┼───────────────────────────────────┼────────────────────────────────────────────────────────────────────────────┼─────────────────────────────────────────────────────────┤
+  │ B   │ ProcessAddrs                      │ Banned/discouraged addresses are skipped (remembered as known, but not     │ setban an IP, include it in an addr msg; assert not     │
+  │     │ net_processing.cpp:5689-92        │ relayed/stored)                                                            │ relayed/stored                                          │
+  ├─────┼───────────────────────────────────┼────────────────────────────────────────────────────────────────────────────┼─────────────────────────────────────────────────────────┤
+  │ C   │ ProcessAddrs                      │ Messages with >10 addresses are stored but not relayed (vAddr.size() <= 10 │ Send 11 addrs; assert receivers get 0 relayed, but they │
+  │     │ net_processing.cpp:5695           │  gate)                                                                     │  still land in addrman                                  │
+  ├─────┼───────────────────────────────────┼────────────────────────────────────────────────────────────────────────────┼─────────────────────────────────────────────────────────┤
+  │ D   │ ProcessAddrs                      │ Non-routable addresses are not relayed (addr.IsRoutable() gate)            │ Include a non-routable addr; assert not relayed         │
+  │     │ net_processing.cpp:5695           │                                                                            │                                                         │
+  ├─────┼───────────────────────────────────┼────────────────────────────────────────────────────────────────────────────┼─────────────────────────────────────────────────────────┤
+  │ E   │ ProcessAddrs                      │ Stale addresses (nTime ≤ now-10min) are not relayed                        │ Send an addr with an old timestamp; assert not relayed  │
+  │     │ net_processing.cpp:5695           │                                                                            │                                                         │
+  └─────┴───────────────────────────────────┴────────────────────────────────────────────────────────────────────────────┴─────────────────────────────────────────────────────────┘
+
+4. Dead !addr.IsRelayable() guard in RelayAddress (2288)                                                                                                                              
+                                                                                                                                                                                        
+  if (!fReachable && !addr.IsRelayable()) return;
+  The only caller (5695) pre-gates on addr.IsRoutable(), and IsRoutable() ⊆ IsRelayable(), so !addr.IsRelayable() is always false here. Unreachable from production. High confidence 
+  it's dead (defensive, but worth noting/documenting).                                       
+   
+  5. First self-announcement isn't added to m_addr_known (5413-5420)
+
+  The initial self-announcement is sent directly via MakeAndPushMessage and skips PushAddress/m_addr_known:
+  if (IsAddrCompatible(peer, local_addr)) {                                                  
+      std::vector<CAddress> self_announcement{local_addr};
+      MakeAndPushMessage(... self_announcement ...);   // not marked known
+  }                                            
+  …whereas every later self-announcement goes through PushAddress (5423), which records it in m_addr_known. Net effect: right after the first announcement, our own address isn't in the
+  known-filter, so it can be redundantly re-sent (via relay or the next flush). Low impact (the bloom filter resets daily anyway), but an asymmetry. Medium confidence it's unintended.
+
+
+i would like to generate mutants for the following 
+last_block 
+
+so anywhere were logic is testable or a test should exist
+
+i know we have some tests somewhere for last block i think its eviction 
+
+and then i would also like to generate mutants for 
+
+last_block_announcement 
+
+mutation testing helps to reveal testing gasp 
+so one you generate mutants 
+and then you analyze mutants to know if its killed or not 
+
+and now we have this folder 
+
+~/bcore-mutation (main)$ ls
+AST.md  Cargo.lock  Cargo.toml  LICENSE  mutation.db  README.md  src  target
+
+so this is an example of how to generate a mutant 
+bcore-mutation mutate -f src/addrman.cpp --range 87 89
+
+this will generate a mutant file for example for a range of file 
+
+a mutant file is generate
+and now you can analyze and now i can do this now 
+note it better t anlyze and test again the actual test files ,  
+
+bcore-mutation analyze -f muts-pr-addrman-67-69 -c "cmake --build build --target test_bitcoin -j$(nproc) && ./build/bin/test_bitcoin --run_test=addrman_tests" -t 120
+
+bcore-mutation analyze -f muts-pr-net_processing-5632-5718 -c "cmake --build build --target test_bitcoin -j$(nproc) && ./build/bin/test_bitcoin --run_test=addrman_tests" -t 120
+
+
+                                                                                                                                                                            
+● Part 1 — last_block_announcement: the conditions I target for mutation                                                                                                                
+                                                                                                                                                                                        
+  Three sites. Within each, these are the boolean/relational sub-expressions a mutant would flip (the = GetTime() assignment line is what the generator keeps classifying as arid and   
+  skipping):                                                                                                                                                                            
+                                                                                                                                                                                        
+  A1 — header-path update, net_processing.cpp:2921-2923                                                                                                                                 
+  if (received_new_header && last_header.nChainWork > m_chainman.ActiveChain().Tip()->nChainWork) {                                                                                     
+      nodestate->m_last_block_announcement = GetTime();                                                                                                                                 
+  }                                                                                                                                                                                     
+  Mutatable conditions:                                                                                                                                                                 
+  - received_new_header && … → ||, or negate the operand, or force true/false                                                                                                           
+  - nChainWork > tipWork → >=, <, <=, ==, !=                                                                                                                                            
+  - the whole if guard → always-true / always-false                                                                                                                                     
+                                                                                                                                                                                        
+  A2 — compact-block update, net_processing.cpp:4537-4539 (identical shape)                                                                                                             
+  if (received_new_header && pindex->nChainWork > m_chainman.ActiveChain().Tip()->nChainWork) {                                                                                         
+      nodestate->m_last_block_announcement = GetTime();                                                                                                                                 
+  }                                                                                                                                                                                     
+  Same set: the &&, and the > chainwork comparison.                                    
+                                                                                            
+  A3 — full-relay eviction read, net_processing.cpp:5281-5283 (the richest target)     
+  if (state->m_last_block_announcement <  oldest_block_announcement ||                 
+     (state->m_last_block_announcement == oldest_block_announcement && pnode->GetId() > worst_peer)) {
+  Mutatable conditions:                                                                     
+  - m_last_block_announcement < oldest → <=, >, >=, ==                                       
+  - the || → &&                                
+  - m_last_block_announcement == oldest → !=                                                 
+  - GetId() > worst_peer → >=, <, <=
+ 
+  All three produced 0 mutants from the tool — so none of these were actually exercised yet.
+
+  Part 2 — All 21 surviving last_block mutants                                               
+
+  L1 · CompareNodeBlockTime (eviction.cpp:30-35) — 9 survivors 
+
+  L1 · CompareNodeBlockTime (eviction.cpp:30-35) — 9 survivors                               
+
+  ┌─────┬──────┬──────────────────────────────────────────────┬───────────────────────┐      
+  │  #  │ Line │                   Mutation                   │ On m_last_block_time? │
+  ├─────┼──────┼──────────────────────────────────────────────┼───────────────────────┤      
+  │ 1   │ 33   │ if (a.m_last_block_time != b...) → if (1==1) │          ✅           │
+  ├─────┼──────┼──────────────────────────────────────────────┼───────────────────────┤
+  │ 2   │ 33   │ return ... < ... → <=                        │          ✅           │      
+  ├─────┼──────┼──────────────────────────────────────────────┼───────────────────────┤
+  │ 3   │ 34   │ if (a.fRelevantServices != b...) → if (1==0) │                       │
+  ├─────┼──────┼──────────────────────────────────────────────┼───────────────────────┤      
+  │ 4   │ 34   │ line deleted                                 │                       │
+  ├─────┼──────┼──────────────────────────────────────────────┼───────────────────────┤      
+  │ 5   │ 34   │ if (... != ...) → if (1==1)                  │                       │
+  ├─────┼──────┼──────────────────────────────────────────────┼───────────────────────┤      
+  │ 6   │ 34   │ != → ==                                      │                       │
+  ├─────┼──────┼──────────────────────────────────────────────┼───────────────────────┤      
+  │ 7   │ 35   │ a.m_connected > b... → <=                    │                       │
+  ├─────┼──────┼──────────────────────────────────────────────┼───────────────────────┤
+  │ 8   │ 35   │ > → >=                                       │                       │
+  ├─────┼──────┼──────────────────────────────────────────────┼───────────────────────┤      
+  │ 9   │ 35   │ > → <                                        │                       │
+  └─────┴──────┴──────────────────────────────────────────────┴───────────────────────┘  
+
+
+  L2 · CompareNodeBlockRelayOnlyTime (eviction.cpp:48-53) — 11 survivors                     
+
+  ┌─────┬──────┬──────────────────────────────────────────────┬───────────────────────┐      
+  │  #  │ Line │                   Mutation                   │ On m_last_block_time? │
+  ├─────┼──────┼──────────────────────────────────────────────┼───────────────────────┤
+  │ 1   │ 50   │ if (a.m_relay_txs != b...) line deleted      │                       │
+  ├─────┼──────┼──────────────────────────────────────────────┼───────────────────────┤
+  │ 2   │ 50   │ if (... != ...) → if (1==0)                  │                       │      
+  ├─────┼──────┼──────────────────────────────────────────────┼───────────────────────┤
+  │ 3   │ 51   │ if (a.m_last_block_time != b...) → if (1==1) │          ✅           │
+  ├─────┼──────┼──────────────────────────────────────────────┼───────────────────────┤      
+  │ 4   │ 51   │ return ... < ... → <=                        │          ✅           │
+  ├─────┼──────┼──────────────────────────────────────────────┼───────────────────────┤      
+  │ 5   │ 52   │ if (a.fRelevantServices != b...) → if (1==0) │                       │
+  ├─────┼──────┼──────────────────────────────────────────────┼───────────────────────┤      
+  │ 6   │ 52   │ != → ==                                      │                       │
+  ├─────┼──────┼──────────────────────────────────────────────┼───────────────────────┤
+  │ 7   │ 52   │ if (... != ...) → if (1==1)                  │                       │
+  ├─────┼──────┼──────────────────────────────────────────────┼───────────────────────┤      
+  │ 8   │ 52   │ line deleted                                 │                       │
+  ├─────┼──────┼──────────────────────────────────────────────┼───────────────────────┤      
+  │ 9   │ 53   │ a.m_connected > b... → <                     │                       │
+  ├─────┼──────┼──────────────────────────────────────────────┼───────────────────────┤      
+  │ 10  │ 53   │ > → <=                                       │                       │
+  ├─────┼──────┼──────────────────────────────────────────────┼───────────────────────┤      
+  │ 11  │ 53   │ > → >=                                       │                       │
+  └─────┴──────┴──────────────────────────────────────────────┴───────────────────────┘
+
+
+ L3 · protect-passes (eviction.cpp:196-201) — 1 survivor                                    
+
+  ┌─────┬──────┬───────────────────────────────────────────────────────────────────────────────┐
+  │  #  │ Line │                                   Mutation                                    │
+  ├─────┼──────┼───────────────────────────────────────────────────────────────────────────────┤
+  │ 1   │ 197  │ !n.m_relay_txs && n.fRelevantServices → !n.m_relay_txs || n.fRelevantServices │
+  └─────┴──────┴───────────────────────────────────────────────────────────────────────────────┘
+
+  21 survivors total. The 4 marked ✅ (mutants on lines 33 and 51) are the ones that matter for last_block specifically — the equal-time guard (1==1) and the <→<= boundary, surviving
+  in both comparators because the eviction tests feed only distinct block times and never a tie.
+
+
+
+For the headers path, yes — the test cleanly exercises the update / no-update logic and both failure reasons. But it is not exhaustive against the production code as a whole: the
+cmpctblock update site has zero coverage despite the docstring advertising it, the multi-peer "first announcer" semantics aren't tested, and there's no forward-update case. The first
+of those is the one I'd raise as an actionable review comment; the other two are reasonable "nice to have" additions depending on how much scope you want this PR to own (the
+eviction-consumer side is already covered separately in denialofservice_tests.cpp).
+
+
+I have this tool thats i used to genrate mutants and identify testing gaps 
+
+
+mutation testing helps to reveal testing gasp 
+so one you generate mutants 
+and then you analyze mutants to know if its killed or not 
+
+and now we have this folder 
+
+~/bcore-mutation (main)$ ls
+AST.md  Cargo.lock  Cargo.toml  LICENSE  mutation.db  README.md  src  target
+
+so this is an example of how to generate a mutant 
+bcore-mutation mutate -f src/addrman.cpp --range 87 89
+
+this will generate a mutant file for example for a range of file 
+
+a mutant file is generate
+and now you can analyze and now i can do this now 
+note it better t anlyze and test again the actual test files ,  
+
+bcore-mutation analyze -f muts-pr-net_processing-5632-5718 -c "cmake --build build --target test_bitcoin -j$(nproc) && ./build/bin/test_bitcoin --run_test=p2p_addr_relay.py, p2p_addrv2_relay.py, p2p_getaddr_caching.py" -t 120
+
+bcore-mutation analyze -f muts-pr-net_processing-5632-5718 -c "cmake --build build --target bitcoind -j$(nproc) && ./build/test/functional/test_runner.py p2p_addr_relay.py p2p_addrv2_relay.py p2p_getaddr_caching.py" -t 600
+
+
+
+i used it to identify this testing gaps 
+
+where to start
+Generate mutants 
+for 
+Getaddr
+Addr mutants
+
+
+
+ All five below are mutation-confirmed: the functional suite (p2p_addr_relay.py, p2p_addrv2_relay.py, p2p_getaddr_caching.py) passes even with the safety logic broken.                
+                                                                                             
+  ┌─────┬───────────────────────────────────┬────────────────────────────────────────────────────────────────────────────┬─────────────────────────────────────────────────────────┐    
+  │  #  │             Location              │                            Unasserted behavior                             │                 Test that would fill it                 │
+  ├─────┼───────────────────────────────────┼────────────────────────────────────────────────────────────────────────────┼─────────────────────────────────────────────────────────┤
+  │ A   │ ProcessAddrs                      │ Addresses lacking useful service flags (!MayHaveUsefulAddressDB &&         │ Send an addr with nServices=0; assert not relayed and   │
+  │     │ net_processing.cpp:5682-83        │ !HasAllDesirableServiceFlags) are dropped                                  │ not stored (getnodeaddresses)                           │
+  ├─────┼───────────────────────────────────┼────────────────────────────────────────────────────────────────────────────┼─────────────────────────────────────────────────────────┤
+  │ B   │ ProcessAddrs                      │ Banned/discouraged addresses are skipped (remembered as known, but not     │ setban an IP, include it in an addr msg; assert not     │
+  │     │ net_processing.cpp:5689-92        │ relayed/stored)                                                            │ relayed/stored                                          │
+  ├─────┼───────────────────────────────────┼────────────────────────────────────────────────────────────────────────────┼─────────────────────────────────────────────────────────┤
+  │ C   │ ProcessAddrs                      │ Messages with >10 addresses are stored but not relayed (vAddr.size() <= 10 │ Send 11 addrs; assert receivers get 0 relayed, but they │
+  │     │ net_processing.cpp:5695           │  gate)                                                                     │  still land in addrman                                  │
+  ├─────┼───────────────────────────────────┼────────────────────────────────────────────────────────────────────────────┼─────────────────────────────────────────────────────────┤
+  │ D   │ ProcessAddrs                      │ Non-routable addresses are not relayed (addr.IsRoutable() gate)            │ Include a non-routable addr; assert not relayed         │
+  │     │ net_processing.cpp:5695           │                                                                            │                                                         │
+  ├─────┼───────────────────────────────────┼────────────────────────────────────────────────────────────────────────────┼─────────────────────────────────────────────────────────┤
+  │ E   │ ProcessAddrs                      │ Stale addresses (nTime ≤ now-10min) are not relayed                        │ Send an addr with an old timestamp; assert not relayed  │
+  │     │ net_processing.cpp:5695           │                                                                            │                                                         │
+  └─────┴───────────────────────────────────┴────────────────────────────────────────────────────────────────────────────┴─────────────────────────────────────────────────────────┘
+
+4. Dead !addr.IsRelayable() guard in RelayAddress (2288)                                                                                                                              
+                                                                                                                                                                                        
+  if (!fReachable && !addr.IsRelayable()) return;
+  The only caller (5695) pre-gates on addr.IsRoutable(), and IsRoutable() ⊆ IsRelayable(), so !addr.IsRelayable() is always false here. Unreachable from production. High confidence 
+  it's dead (defensive, but worth noting/documenting).                                       
+   
+  5. First self-announcement isn't added to m_addr_known (5413-5420)
+
+  The initial self-announcement is sent directly via MakeAndPushMessage and skips PushAddress/m_addr_known:
+  if (IsAddrCompatible(peer, local_addr)) {                                                  
+      std::vector<CAddress> self_announcement{local_addr};
+      MakeAndPushMessage(... self_announcement ...);   // not marked known
+  }                                            
+  …whereas every later self-announcement goes through PushAddress (5423), which records it in m_addr_known. Net effect: right after the first announcement, our own address isn't in the
+  known-filter, so it can be redundantly re-sent (via relay or the next flush). Low impact (the bloom filter resets daily anyway), but an asymmetry. Medium confidence it's unintended.
+
+
+i would like to generate mutants for the following 
+last_block 
+
+so anywhere were logic is testable or a test should exist
+
+i know we have some tests somewhere for last block i think its eviction 
+
+and then i would also like to generate mutants for 
+
+last_block_announcement 
+
+mutation testing helps to reveal testing gasp 
+so one you generate mutants 
+and then you analyze mutants to know if its killed or not 
+
+and now we have this folder 
+
+~/bcore-mutation (main)$ ls
+AST.md  Cargo.lock  Cargo.toml  LICENSE  mutation.db  README.md  src  target
+
+so this is an example of how to generate a mutant 
+bcore-mutation mutate -f src/addrman.cpp --range 87 89
+
+this will generate a mutant file for example for a range of file 
+
+a mutant file is generate
+and now you can analyze and now i can do this now 
+note it better t anlyze and test again the actual test files ,  
+
+bcore-mutation analyze -f muts-pr-addrman-67-69 -c "cmake --build build --target test_bitcoin -j$(nproc) && ./build/bin/test_bitcoin --run_test=addrman_tests" -t 120
+
+
+
+                                                                                                                                                                            
+● Part 1 — last_block_announcement: the conditions I target for mutation                                                                                                                
+                                                                                                                                                                                        
+  Three sites. Within each, these are the boolean/relational sub-expressions a mutant would flip (the = GetTime() assignment line is what the generator keeps classifying as arid and   
+  skipping):                                                                                                                                                                            
+                                                                                                                                                                                        
+  A1 — header-path update, net_processing.cpp:2921-2923                                                                                                                                 
+  if (received_new_header && last_header.nChainWork > m_chainman.ActiveChain().Tip()->nChainWork) {                                                                                     
+      nodestate->m_last_block_announcement = GetTime();                                                                                                                                 
+  }                                                                                                                                                                                     
+  Mutatable conditions:                                                                                                                                                                 
+  - received_new_header && … → ||, or negate the operand, or force true/false                                                                                                           
+  - nChainWork > tipWork → >=, <, <=, ==, !=                                                                                                                                            
+  - the whole if guard → always-true / always-false                                                                                                                                     
+                                                                                                                                                                                        
+  A2 — compact-block update, net_processing.cpp:4537-4539 (identical shape)                                                                                                             
+  if (received_new_header && pindex->nChainWork > m_chainman.ActiveChain().Tip()->nChainWork) {                                                                                         
+      nodestate->m_last_block_announcement = GetTime();                                                                                                                                 
+  }                                                                                                                                                                                     
+  Same set: the &&, and the > chainwork comparison.                                    
+                                                                                            
+  A3 — full-relay eviction read, net_processing.cpp:5281-5283 (the richest target)     
+  if (state->m_last_block_announcement <  oldest_block_announcement ||                 
+     (state->m_last_block_announcement == oldest_block_announcement && pnode->GetId() > worst_peer)) {
+  Mutatable conditions:                                                                     
+  - m_last_block_announcement < oldest → <=, >, >=, ==                                       
+  - the || → &&                                
+  - m_last_block_announcement == oldest → !=                                                 
+  - GetId() > worst_peer → >=, <, <=
+ 
+  All three produced 0 mutants from the tool — so none of these were actually exercised yet.
+
+  Part 2 — All 21 surviving last_block mutants                                               
+
+  L1 · CompareNodeBlockTime (eviction.cpp:30-35) — 9 survivors 
+
+  L1 · CompareNodeBlockTime (eviction.cpp:30-35) — 9 survivors                               
+
+  ┌─────┬──────┬──────────────────────────────────────────────┬───────────────────────┐      
+  │  #  │ Line │                   Mutation                   │ On m_last_block_time? │
+  ├─────┼──────┼──────────────────────────────────────────────┼───────────────────────┤      
+  │ 1   │ 33   │ if (a.m_last_block_time != b...) → if (1==1) │          ✅           │
+  ├─────┼──────┼──────────────────────────────────────────────┼───────────────────────┤
+  │ 2   │ 33   │ return ... < ... → <=                        │          ✅           │      
+  ├─────┼──────┼──────────────────────────────────────────────┼───────────────────────┤
+  │ 3   │ 34   │ if (a.fRelevantServices != b...) → if (1==0) │                       │
+  ├─────┼──────┼──────────────────────────────────────────────┼───────────────────────┤      
+  │ 4   │ 34   │ line deleted                                 │                       │
+  ├─────┼──────┼──────────────────────────────────────────────┼───────────────────────┤      
+  │ 5   │ 34   │ if (... != ...) → if (1==1)                  │                       │
+  ├─────┼──────┼──────────────────────────────────────────────┼───────────────────────┤      
+  │ 6   │ 34   │ != → ==                                      │                       │
+  ├─────┼──────┼──────────────────────────────────────────────┼───────────────────────┤      
+  │ 7   │ 35   │ a.m_connected > b... → <=                    │                       │
+  ├─────┼──────┼──────────────────────────────────────────────┼───────────────────────┤
+  │ 8   │ 35   │ > → >=                                       │                       │
+  ├─────┼──────┼──────────────────────────────────────────────┼───────────────────────┤      
+  │ 9   │ 35   │ > → <                                        │                       │
+  └─────┴──────┴──────────────────────────────────────────────┴───────────────────────┘  
+
+
+  L2 · CompareNodeBlockRelayOnlyTime (eviction.cpp:48-53) — 11 survivors                     
+
+  ┌─────┬──────┬──────────────────────────────────────────────┬───────────────────────┐      
+  │  #  │ Line │                   Mutation                   │ On m_last_block_time? │
+  ├─────┼──────┼──────────────────────────────────────────────┼───────────────────────┤
+  │ 1   │ 50   │ if (a.m_relay_txs != b...) line deleted      │                       │
+  ├─────┼──────┼──────────────────────────────────────────────┼───────────────────────┤
+  │ 2   │ 50   │ if (... != ...) → if (1==0)                  │                       │      
+  ├─────┼──────┼──────────────────────────────────────────────┼───────────────────────┤
+  │ 3   │ 51   │ if (a.m_last_block_time != b...) → if (1==1) │          ✅           │
+  ├─────┼──────┼──────────────────────────────────────────────┼───────────────────────┤      
+  │ 4   │ 51   │ return ... < ... → <=                        │          ✅           │
+  ├─────┼──────┼──────────────────────────────────────────────┼───────────────────────┤      
+  │ 5   │ 52   │ if (a.fRelevantServices != b...) → if (1==0) │                       │
+  ├─────┼──────┼──────────────────────────────────────────────┼───────────────────────┤      
+  │ 6   │ 52   │ != → ==                                      │                       │
+  ├─────┼──────┼──────────────────────────────────────────────┼───────────────────────┤
+  │ 7   │ 52   │ if (... != ...) → if (1==1)                  │                       │
+  ├─────┼──────┼──────────────────────────────────────────────┼───────────────────────┤      
+  │ 8   │ 52   │ line deleted                                 │                       │
+  ├─────┼──────┼──────────────────────────────────────────────┼───────────────────────┤      
+  │ 9   │ 53   │ a.m_connected > b... → <                     │                       │
+  ├─────┼──────┼──────────────────────────────────────────────┼───────────────────────┤      
+  │ 10  │ 53   │ > → <=                                       │                       │
+  ├─────┼──────┼──────────────────────────────────────────────┼───────────────────────┤      
+  │ 11  │ 53   │ > → >=                                       │                       │
+  └─────┴──────┴──────────────────────────────────────────────┴───────────────────────┘
+
+
+ L3 · protect-passes (eviction.cpp:196-201) — 1 survivor                                    
+
+  ┌─────┬──────┬───────────────────────────────────────────────────────────────────────────────┐
+  │  #  │ Line │                                   Mutation                                    │
+  ├─────┼──────┼───────────────────────────────────────────────────────────────────────────────┤
+  │ 1   │ 197  │ !n.m_relay_txs && n.fRelevantServices → !n.m_relay_txs || n.fRelevantServices │
+  └─────┴──────┴───────────────────────────────────────────────────────────────────────────────┘
+
+  21 survivors total. The 4 marked ✅ (mutants on lines 33 and 51) are the ones that matter for last_block specifically — the equal-time guard (1==1) and the <→<= boundary, surviving
+  in both comparators because the eviction tests feed only distinct block times and never a tie.
+
+
+
+For the headers path, yes — the test cleanly exercises the update / no-update logic and both failure reasons. But it is not exhaustive against the production code as a whole: the
+cmpctblock update site has zero coverage despite the docstring advertising it, the multi-peer "first announcer" semantics aren't tested, and there's no forward-update case. The first
+of those is the one I'd raise as an actionable review comment; the other two are reasonable "nice to have" additions depending on how much scope you want this PR to own (the
+eviction-consumer side is already covered separately in denialofservice_tests.cpp).
+
+i need to verify which gaps are rela and which arent , also i can use to identify issues in the logic 
+
+possible mutants 
+
+5689 — m_banman && (IsDiscouraged || IsBanned) → && ✅ best of the three                                                                                                             
+  - Kill: setban an IP (→ IsBanned true, IsDiscouraged false), send that addr among routable ones, assert it is not relayed to receivers / not in getnodeaddresses. Under && the
+  banned-but-not-discouraged addr leaks through.                                             
+  - Real security gap, cleanest assertion.                                                   
+ 
+  5682 — !MayHaveUsefulAddressDB && !HasAllDesirableServiceFlags → || ✅ legit                                                                                                          
+  - Kill: send an addr with nServices = NODE_NETWORK_LIMITED only (useful-DB true, all-desirable false). Original processes it; mutant skips. Assert via addr_processed (getpeerinfo) or
+  that it lands in addrman.                                                                                                                                                             
+  - Medium value, slightly fiddly services setup.                                            
+                                                                                                                                                                                        
+  5685 — nTime <= 1e8s || nTime > now+10min → < / >= / && ⚠️ weakest                                                                                                                     
+  - Kill: send an addr with a bogus-past nTime (e.g. 0); original clamps to now-5d, mutant (&&) doesn't. Assert the stored time via getnodeaddresses.
+  - Killable, but it's input sanitization — low consequence, and the assertion is awkward (you're checking a timestamp got rewritten). Honestly this is lower value than the
+  eviction-tie or announcement-write gaps you set aside.  
+
+
+  t's not an existing test — it's the one I'd add to src/test/net_peer_eviction_tests.cpp (the peer_eviction_test case). It targets the last_block_time comparator survivors in
+  node/eviction.cpp:                                                                         
+
+  - eviction.cpp:33 if (a.m_last_block_time != b.m_last_block_time) → if (1==1)
+  - eviction.cpp:33 return a.m_last_block_time < b.m_last_block_time → <=
+  - eviction.cpp:51 the same two (in CompareNodeBlockRelayOnlyTime)
+
+  Why it's missing: every existing case sets m_last_block_time = number_of_nodes - candidate.id (net_peer_eviction_tests.cpp:628/640/647/661) → all distinct. So the != guard is always
+  true and the comparator returns at line 33/51 every time. The tie branch and the fall-through (lines 34–35: fRelevantServices, then m_connected) are never reached.
+
+  The new test: give a set of candidates identical m_last_block_time, then vary fRelevantServices / m_connected, and assert which peer gets protected/evicted. That forces execution
+  past the != guard into the fall-through, so:
+  - if (1==1) mutant now differs (it always falls through vs. the original only-on-tie) → killed.
+  - < → <= mutant: with equal values, <= returns true for both comp(a,b) and comp(b,a) — a strict-weak-ordering violation — so the protected/evicted set changes → killed.
+                                                                                             
+  That single case kills all four, and as a bonus makes the line 34/35 and 52/53 fall-through mutants reachable too. It's also the one with a real correctness angle (the <= regression
+  is std::sort UB precisely when block times tie, which is the common production case per the comment at eviction.cpp:32).
+
+  Want me to write this case into peer_eviction_test, or the three addr ones, or both?  
+
+
+  Kill first — real correctness/security, cheap to cover
+
+  1. net_processing:5689 IsDiscouraged || IsBanned → && — banned addr leaks into relay/storage. Security. 1 test (setban + assert not relayed).
+  2. eviction:33 + :51 — 4 mutants (!=→1==1 ×2, <→<= ×2). Equal-m_last_block_time tie path; <= is std::sort UB in the common prod case. One test kills all 4 + unlocks the 34/35/52/53
+  fall-through.
+  3. net_processing:2921 + 4537 — 6 mutants (>→<,>=,<=; &&→|| per site). last_block_announcement write path, zero unit coverage; affects which extra-outbound peer gets evicted. 1 unit
+  test per site.
+
+  Kill next — real gaps, lower consequence or fiddlier
+
+  4. net_processing:5682 !MayHaveUsefulAddressDB && !HasAllDesirableServiceFlags → || — send NODE_NETWORK_LIMITED-only addr, assert processed.
+  5. eviction:197 !m_relay_txs && fRelevantServices → || — add a relay-txs + relevant-services peer.
+  6. net_processing:5685 nTime <= 1e8s || > now+10min → </>=/&& — timestamp clamp; low consequence, awkward assert.
+  7. net_processing:5695 inner (size<=10 && IsRoutable) && → ||
+  8. net_processing:5700 if(reachable) store → negate
+  9. net_processing:2288 !fReachable && !IsRelayable() → ||
+  10. net_processing:1133 IsValid() && !contains() && IsAddrCompatible → ||
+
+  Boundary — only if chasing a high score
+
+  11. 5642 > MAX → >= (need size==1000)
+  12. 5710 < 1000 → <=
+  13. 5430 <= m_next_addr_send → <
+  14. 2313 hashKey > → >=
+  15. 1134 >= MAX → >/==
+  16. 2921/4537 >→>= (need equal-work header) — folds into #3's site
+
+  Don't bother
+
+  - 5653 < MAX → <= — equivalent (std::min caps it)
+  - 5461 capacity() > 40 — equivalent (optimization)
+  - 4541 BLOCK_HAVE_DATA → 1==1 — range artifact, unrelated to your scope
+
+  So: 5689 → eviction ties → announcement write are the three to do, in that order. Want me to start writing #1 and #2?
+
+
+The genuine survivor (real gap, DoS-relevant)
+
+  5012 — vInv.size() <= MAX_PEER_TX_ANNOUNCEMENTS + MAX_BLOCKS_IN_TRANSIT_PER_PEER:
+  - <= → < / >= — survives (boundary): no test sends a NOTFOUND with exactly MAX+1 invs.
+  - More importantly, the removal direction (force-true / <=→anything-always-true) — survives: this guard caps how many invs you process from a single NOTFOUND (anti-DoS). No test
+  sends an oversized NOTFOUND and asserts it's capped/ignored, so a regression that removes the cap goes uncaught.
+  
+  That's the one worth a test: send a NOTFOUND with > MAX_PEER_TX_ANNOUNCEMENTS + MAX_BLOCKS_IN_TRANSIT_PER_PEER invs and assert the node doesn't process them (no fallback re-requests
+  triggered). Everything else on the NOTFOUND paths is killed by p2p_tx_download.py + p2p_leak_tx.py — if you point -c at those rather than test_bitcoin.

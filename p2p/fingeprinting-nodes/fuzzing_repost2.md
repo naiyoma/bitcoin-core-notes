@@ -3,7 +3,7 @@
 ![Alt text](fuzz_data.png)
 
 
-this is an exaplantion for the table above 
+this is an explanation for the table above 
 
 disclaimer: this is based on old data that i have previously matched to try and find bridges
 I had two separate tables(not shared here ) in my database from when i crawled the network 
@@ -90,3 +90,8 @@ so when you fuzz +/-5days and then check for timestamps within the same range,
 now nearly every pair has at least one shared peer that also falls within that range 
 
 so +/-days breaks correlation not by hiding the real match but by surrounding it with false positives - the unique bridges become ambiguous. (this defeats an attacker who fixes the window to the fuzz range; a smarter likelihood-based attacker might still pick the true match out, which is the next thing to test.)
+
+
+if you had 1 then fuzzed by - 5
+then another 1 and then fuzzed by - 5 
+-5 - 5 = 10 

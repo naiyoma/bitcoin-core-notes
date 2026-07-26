@@ -1,0 +1,437 @@
+{
+ "log": "/home/ubuntu/.bitcoin/debug.log",
+ "restarts": [
+  "2026-06-03T08:34:43Z",
+  "2026-06-03T08:42:53Z",
+  "2026-06-09T09:34:44Z",
+  "2026-07-02T11:01:03Z"
+ ],
+ "n_restarts": 4,
+ "daily": {
+  "2026-06-03": {
+   "ga_msgs": 24,
+   "ga_addrs": 23998,
+   "ga_peers": 24,
+   "go_msgs": 7974,
+   "go_addrs": 20740,
+   "go_peers": 21
+  },
+  "2026-06-04": {
+   "ga_msgs": 7,
+   "ga_addrs": 7000,
+   "ga_peers": 7,
+   "go_msgs": 12750,
+   "go_addrs": 32736,
+   "go_peers": 17
+  },
+  "2026-06-05": {
+   "ga_msgs": 6,
+   "ga_addrs": 6000,
+   "ga_peers": 6,
+   "go_msgs": 13406,
+   "go_addrs": 34067,
+   "go_peers": 74
+  },
+  "2026-06-06": {
+   "ga_msgs": 10,
+   "ga_addrs": 10000,
+   "ga_peers": 10,
+   "go_msgs": 13198,
+   "go_addrs": 33225,
+   "go_peers": 106
+  },
+  "2026-06-07": {
+   "ga_msgs": 8,
+   "ga_addrs": 8000,
+   "ga_peers": 8,
+   "go_msgs": 13140,
+   "go_addrs": 32946,
+   "go_peers": 101
+  },
+  "2026-06-08": {
+   "ga_msgs": 6,
+   "ga_addrs": 6000,
+   "ga_peers": 6,
+   "go_msgs": 5711,
+   "go_addrs": 14652,
+   "go_peers": 50
+  },
+  "2026-06-09": {
+   "ga_msgs": 22,
+   "ga_addrs": 22000,
+   "ga_peers": 22,
+   "go_msgs": 8566,
+   "go_addrs": 24544,
+   "go_peers": 54
+  },
+  "2026-06-10": {
+   "ga_msgs": 11,
+   "ga_addrs": 11000,
+   "ga_peers": 11,
+   "go_msgs": 13573,
+   "go_addrs": 36273,
+   "go_peers": 69
+  },
+  "2026-06-11": {
+   "ga_msgs": 10,
+   "ga_addrs": 9999,
+   "ga_peers": 10,
+   "go_msgs": 13491,
+   "go_addrs": 36086,
+   "go_peers": 78
+  },
+  "2026-06-12": {
+   "ga_msgs": 4,
+   "ga_addrs": 4000,
+   "ga_peers": 4,
+   "go_msgs": 13574,
+   "go_addrs": 35449,
+   "go_peers": 116
+  },
+  "2026-06-13": {
+   "ga_msgs": 15,
+   "ga_addrs": 15000,
+   "ga_peers": 15,
+   "go_msgs": 13873,
+   "go_addrs": 36609,
+   "go_peers": 151
+  },
+  "2026-06-14": {
+   "ga_msgs": 7,
+   "ga_addrs": 7000,
+   "ga_peers": 7,
+   "go_msgs": 16055,
+   "go_addrs": 44989,
+   "go_peers": 133
+  },
+  "2026-06-15": {
+   "ga_msgs": 16,
+   "ga_addrs": 16000,
+   "ga_peers": 16,
+   "go_msgs": 16015,
+   "go_addrs": 45981,
+   "go_peers": 129
+  },
+  "2026-06-16": {
+   "ga_msgs": 4,
+   "ga_addrs": 4000,
+   "ga_peers": 4,
+   "go_msgs": 17284,
+   "go_addrs": 50077,
+   "go_peers": 124
+  },
+  "2026-06-17": {
+   "ga_msgs": 15,
+   "ga_addrs": 15000,
+   "ga_peers": 15,
+   "go_msgs": 18071,
+   "go_addrs": 50895,
+   "go_peers": 146
+  },
+  "2026-06-18": {
+   "ga_msgs": 5,
+   "ga_addrs": 5000,
+   "ga_peers": 5,
+   "go_msgs": 17125,
+   "go_addrs": 49012,
+   "go_peers": 94
+  },
+  "2026-06-19": {
+   "ga_msgs": 6,
+   "ga_addrs": 6000,
+   "ga_peers": 6,
+   "go_msgs": 15676,
+   "go_addrs": 43635,
+   "go_peers": 159
+  },
+  "2026-06-20": {
+   "ga_msgs": 10,
+   "ga_addrs": 10000,
+   "ga_peers": 10,
+   "go_msgs": 16307,
+   "go_addrs": 48039,
+   "go_peers": 137
+  },
+  "2026-06-21": {
+   "ga_msgs": 13,
+   "ga_addrs": 13000,
+   "ga_peers": 13,
+   "go_msgs": 14795,
+   "go_addrs": 40186,
+   "go_peers": 153
+  },
+  "2026-06-22": {
+   "ga_msgs": 13,
+   "ga_addrs": 13000,
+   "ga_peers": 13,
+   "go_msgs": 15994,
+   "go_addrs": 44467,
+   "go_peers": 160
+  },
+  "2026-06-23": {
+   "ga_msgs": 8,
+   "ga_addrs": 8000,
+   "ga_peers": 8,
+   "go_msgs": 16123,
+   "go_addrs": 43810,
+   "go_peers": 131
+  },
+  "2026-06-24": {
+   "ga_msgs": 17,
+   "ga_addrs": 17000,
+   "ga_peers": 17,
+   "go_msgs": 16404,
+   "go_addrs": 43426,
+   "go_peers": 168
+  },
+  "2026-06-25": {
+   "ga_msgs": 2,
+   "ga_addrs": 2000,
+   "ga_peers": 2,
+   "go_msgs": 16552,
+   "go_addrs": 43097,
+   "go_peers": 189
+  },
+  "2026-06-26": {
+   "ga_msgs": 9,
+   "ga_addrs": 9000,
+   "ga_peers": 9,
+   "go_msgs": 17546,
+   "go_addrs": 46293,
+   "go_peers": 191
+  },
+  "2026-06-27": {
+   "ga_msgs": 10,
+   "ga_addrs": 10000,
+   "ga_peers": 10,
+   "go_msgs": 18728,
+   "go_addrs": 51880,
+   "go_peers": 207
+  },
+  "2026-06-28": {
+   "ga_msgs": 14,
+   "ga_addrs": 14000,
+   "ga_peers": 14,
+   "go_msgs": 19477,
+   "go_addrs": 56052,
+   "go_peers": 168
+  },
+  "2026-06-29": {
+   "ga_msgs": 21,
+   "ga_addrs": 21000,
+   "ga_peers": 21,
+   "go_msgs": 18685,
+   "go_addrs": 53297,
+   "go_peers": 244
+  },
+  "2026-06-30": {
+   "ga_msgs": 11,
+   "ga_addrs": 11000,
+   "ga_peers": 11,
+   "go_msgs": 18144,
+   "go_addrs": 51922,
+   "go_peers": 210
+  },
+  "2026-07-01": {
+   "ga_msgs": 8,
+   "ga_addrs": 7999,
+   "ga_peers": 8,
+   "go_msgs": 17950,
+   "go_addrs": 49479,
+   "go_peers": 269
+  },
+  "2026-07-02": {
+   "ga_msgs": 20,
+   "ga_addrs": 19999,
+   "ga_peers": 20,
+   "go_msgs": 15285,
+   "go_addrs": 43082,
+   "go_peers": 239
+  },
+  "2026-07-03": {
+   "ga_msgs": 5,
+   "ga_addrs": 5000,
+   "ga_peers": 5,
+   "go_msgs": 13112,
+   "go_addrs": 32505,
+   "go_peers": 197
+  },
+  "2026-07-04": {
+   "ga_msgs": 5,
+   "ga_addrs": 5000,
+   "ga_peers": 5,
+   "go_msgs": 15635,
+   "go_addrs": 41843,
+   "go_peers": 240
+  },
+  "2026-07-05": {
+   "ga_msgs": 14,
+   "ga_addrs": 14000,
+   "ga_peers": 14,
+   "go_msgs": 18353,
+   "go_addrs": 53342,
+   "go_peers": 214
+  },
+  "2026-07-06": {
+   "ga_msgs": 32,
+   "ga_addrs": 31998,
+   "ga_peers": 32,
+   "go_msgs": 16832,
+   "go_addrs": 45848,
+   "go_peers": 246
+  },
+  "2026-07-07": {
+   "ga_msgs": 9,
+   "ga_addrs": 8998,
+   "ga_peers": 9,
+   "go_msgs": 19393,
+   "go_addrs": 53467,
+   "go_peers": 196
+  },
+  "2026-07-08": {
+   "ga_msgs": 6,
+   "ga_addrs": 6000,
+   "ga_peers": 6,
+   "go_msgs": 17470,
+   "go_addrs": 45383,
+   "go_peers": 160
+  },
+  "2026-07-09": {
+   "ga_msgs": 5,
+   "ga_addrs": 5000,
+   "ga_peers": 5,
+   "go_msgs": 17724,
+   "go_addrs": 47541,
+   "go_peers": 238
+  },
+  "2026-07-10": {
+   "ga_msgs": 12,
+   "ga_addrs": 11999,
+   "ga_peers": 12,
+   "go_msgs": 19014,
+   "go_addrs": 51931,
+   "go_peers": 256
+  },
+  "2026-07-11": {
+   "ga_msgs": 11,
+   "ga_addrs": 11000,
+   "ga_peers": 11,
+   "go_msgs": 20941,
+   "go_addrs": 58913,
+   "go_peers": 240
+  },
+  "2026-07-12": {
+   "ga_msgs": 11,
+   "ga_addrs": 10999,
+   "ga_peers": 11,
+   "go_msgs": 24734,
+   "go_addrs": 74711,
+   "go_peers": 236
+  },
+  "2026-07-13": {
+   "ga_msgs": 12,
+   "ga_addrs": 12000,
+   "ga_peers": 12,
+   "go_msgs": 25680,
+   "go_addrs": 79931,
+   "go_peers": 239
+  },
+  "2026-07-14": {
+   "ga_msgs": 15,
+   "ga_addrs": 15000,
+   "ga_peers": 15,
+   "go_msgs": 21543,
+   "go_addrs": 58825,
+   "go_peers": 267
+  },
+  "2026-07-15": {
+   "ga_msgs": 34,
+   "ga_addrs": 34000,
+   "ga_peers": 34,
+   "go_msgs": 14217,
+   "go_addrs": 28057,
+   "go_peers": 342
+  },
+  "2026-07-16": {
+   "ga_msgs": 17,
+   "ga_addrs": 17000,
+   "ga_peers": 17,
+   "go_msgs": 12072,
+   "go_addrs": 22338,
+   "go_peers": 345
+  },
+  "2026-07-17": {
+   "ga_msgs": 3,
+   "ga_addrs": 3000,
+   "ga_peers": 3,
+   "go_msgs": 6035,
+   "go_addrs": 11259,
+   "go_peers": 161
+  }
+ },
+ "gossip_size_hist": {
+  "1": 280299,
+  "2": 160384,
+  "3": 98193,
+  "4": 62347,
+  "5": 38760,
+  "6": 25089,
+  "7": 16399,
+  "8": 10678,
+  "9": 7090,
+  "10": 5174,
+  "11": 3202,
+  "12": 2052,
+  "13": 1396,
+  "14": 994,
+  "15": 669,
+  "16": 464,
+  "17": 318,
+  "18": 198,
+  "19": 142,
+  "20": 91,
+  "21": 64,
+  "22": 60,
+  "23": 47,
+  "24": 35,
+  "25": 19,
+  "26": 13,
+  "27": 15,
+  "28": 6,
+  "29": 9,
+  "30": 2,
+  "31": 2,
+  "32": 1,
+  "33": 2,
+  "34": 2,
+  "35": 1,
+  "51": 1,
+  "843": 1,
+  "856": 1,
+  "902": 1,
+  "906": 1,
+  "908": 1,
+  "916": 1,
+  "967": 1,
+  "970": 1,
+  "974": 1
+ },
+ "ga_since_start": {
+  "0-1m": 7,
+  "1-5m": 20,
+  "5-30m": 10,
+  "30m-2h": 10,
+  "2h-6h": 2,
+  "6h-24h": 22,
+  ">24h": 452
+ },
+ "go_since_start": {
+  "0-1m": 15,
+  "1-5m": 78,
+  "5-30m": 711,
+  "30m-2h": 2581,
+  "2h-6h": 6897,
+  "6h-24h": 29502,
+  ">24h": 674443
+ }
+}
