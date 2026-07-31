@@ -1,0 +1,14 @@
+This was my configuration:
+ bitcoind -onlynet=cjdns -cjdnsreachable -debug=addrman
+I only have 2 cjdns addresses in my addrman. My node spun for 3 h 46 m without making progress. ThreadOpenConnections kept calling Select() — 648,302 times, ~48/second — and it returned successfully every time, always one of the same two CJDNS addresses. The connections failed, the addresses stayed in addrman, and the loop restarted.
+Found a discussion about this here https://github.com/bitcoin/bitcoin/pull/27214/changes and the suggestion was on not re-checking buckets we've already gone through pre-shuffling with a visited marker, tracking visited buckets, or a random odd-stride walk that hits each bucket once.
+At the moment, I'm leaning toward opening an issue. On the other hand, this is a very extreme edge case, and it has already been discussed.
+
+I'm not sure this is worth opening an issue for, as it seems like a very extreme edge case. Let me know what you think—I'd be interested to hear both your perspective.
+
+: https://github.com/bitcoin/bitcoin/pull/27214/changes
+There's a suggestion to never revisit a a bucket once we’ve tried it. And i think thats a good thing to attempt 
+I'm thinking of either writing a benchmark to measure this and opening an issue to continue the discussion or opening a pr for the improvement. 
+What do you think?
+
+So the behaviour i am seeing is that select will choose an address and we dont connect ot it then it will still be able to connect 
