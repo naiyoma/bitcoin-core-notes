@@ -15,7 +15,10 @@ rate climbs on its own. The test node's 0.92% -> 5.23% jump is almost entirely
 its 92-hour outage, not a reversal of the experiment's result; drawn as a plain
 solid line it reads as the opposite of what happened.
 
-usage: plot_terrible_rate_v2.py [--dark] [-o out.png]
+usage: plot_terrible_rate_v2.py [--dark] [-o out.png] [-i series.json]
+
+-i overrides the default terrible_rate_series.json, so run 2 gets its own
+series file and the run-1 figures stay exactly as they were.
 """
 import sys, json, datetime
 import matplotlib
@@ -43,9 +46,9 @@ def parse(s):
     return datetime.datetime.fromisoformat(s.replace("Z", "+00:00"))
 
 
-def main(dark=False, out=None):
+def main(dark=False, out=None, src=None):
     c = THEME["dark" if dark else "light"]
-    data = json.load(open(f"{HERE}/terrible_rate_series.json"))
+    data = json.load(open(src or f"{HERE}/terrible_rate_series.json"))
 
     fig, ax = plt.subplots(figsize=(12, 6.6))
     fig.patch.set_facecolor(c["surface"])
@@ -85,7 +88,15 @@ def main(dark=False, out=None):
                     textcoords="offset points", va="center", ha="right",
                     fontsize=9.5, color=c[node], annotation_clip=False)
 
-    ax.set_ylim(0, 6.2)
+    # was hardcoded at 6.2 for run 1's range, which both clipped a higher rate
+    # off the top and wasted half the axis on a narrow recent window
+    peak = max(r["rate"] for n in data["readings"] for r in data["readings"][n])
+    ax.set_ylim(0, max(peak * 1.15, 1.0))
+    # The first-reading labels are drawn to the LEFT of their marker, which lands
+    # on top of the y-axis label unless the axis starts before the data does.
+    # Run 1 got away with it because its first points sat near y=0.
+    lo, hi = ax.get_xlim()
+    ax.set_xlim(lo - (hi - lo) * 0.07, hi)
     ax.set_ylabel("terrible addresses  (% of addrman, nTime older than 30 d)",
                   color=c["ink2"], fontsize=10)
     ax.grid(True, axis="y", color=c["grid"], lw=0.8, zorder=0)
@@ -101,9 +112,17 @@ def main(dark=False, out=None):
 
     ax.set_title("Terrible-address rate over time — test vs control",
                  color=c["ink"], fontsize=14, loc="left", pad=26)
+    # Only claim the outage convention when the window actually contains one --
+    # on a clean stretch it describes marks that are not on the page.
+    span = (min(parse(r["t"]) for n in data["readings"] for r in data["readings"][n]),
+            max(parse(r["t"]) for n in data["readings"] for r in data["readings"][n]))
+    shown = [1 for sp in data.get("outages", {}).values() for a, b in sp
+             if parse(b) > span[0] and parse(a) < span[1]]
     fig.text(0.135, 0.885,
              "shaded / dashed = node was down; the rate climbs there on ageing "
-             "alone, with no gossip arriving to refresh anything",
+             "alone, with no gossip arriving to refresh anything" if shown else
+             f"{span[0]:%Y-%m-%d} → {span[1]:%Y-%m-%d}  ·  hourly getrawaddrman "
+             f"snapshots, one plotted per 6 h  ·  no downtime in this window",
              color=c["ink3"], fontsize=9.5, ha="left")
 
     ax.legend(loc="upper center", frameon=False, fontsize=9.5,
@@ -116,4 +135,6 @@ def main(dark=False, out=None):
 
 if __name__ == "__main__":
     a = sys.argv[1:]
-    main("--dark" in a, a[a.index("-o") + 1] if "-o" in a else None)
+    main("--dark" in a,
+         a[a.index("-o") + 1] if "-o" in a else None,
+         a[a.index("-i") + 1] if "-i" in a else None)
