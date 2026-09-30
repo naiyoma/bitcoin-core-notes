@@ -1,0 +1,125 @@
+127-MUTANT COMBINED RUN  (neo50t, parallel, 2026-09-06)
+score 75.59%  —  96 killed / 127  —  31 survived  —  0 timeouts
+
+handler         mutants  killed  survived   score
+--------------------------------------------------
+VERSION              55      37        18     67%
+VERACK               16      13         3     81%
+SENDCMPCT             8       7         1     88%
+WTXIDRELAY            6       4         2     67%
+SENDADDRV2            4       4         0    100%
+FEATURE               6       6         0    100%
+SENDTXRCNCL          13      11         2     85%
+ADDR/ADDRV2           4       3         1     75%
+INV                  15      11         4     73%
+
+
+THE 31 SURVIVING MUTANTS
+================================================================================================
+
+--- VERSION ---
+[id   2] line 3846   true ==> false
+   -  bool fRelay = true;
+   +  bool fRelay = false;
+[id   3] line 3849    <  ==>  <= 
+   -  if (nTime < 0) {
+   +  if (nTime <= 0) {
+[id  10] line 3871    <  ==>  <= 
+   -  if (nVersion < MIN_PEER_PROTO_VERSION) {
+   +  if (nVersion <= MIN_PEER_PROTO_VERSION) {
+[id  11] line 3874   true ==> false
+   -  pfrom.fDisconnect = true;
+   +  pfrom.fDisconnect = false;
+[id  15] line 3904   && ==> ||
+   -  if (pfrom.IsInboundConn() && addrMe.IsRoutable())
+   +  if (pfrom.IsInboundConn() || addrMe.IsRoutable())
+[id  16] line 3906   ^\s*[a-zA-Z_]\w*(?:::[a-zA-Z_]\w*)*(?:(?:->|\.)[a-zA-Z_]\w*)*\s*\([^;]*\)\s*;$ ==> 
+   -  SeenLocal(addrMe);
+   +  
+[id  20] line 3920   (\.\w+\s*=\s*)([^,;=][^,;]*?)(\s*[,;]) ==> ${1}true${3}
+   -  pfrom.m_has_all_wanted_services = HasAllDesirableServiceFlags(nServices);
+   +  pfrom.m_has_all_wanted_services = true;
+[id  27] line 3940   true ==> false
+   -  tx_relay->m_relay_txs = fRelay; // set to true after we get the first filter* message
+   +  tx_relay->m_relay_txs = fRelay; // set to false after we get the first filter* message
+[id  28] line 3942   true ==> false
+   -  if (fRelay) pfrom.m_relays_txs = true;
+   +  if (fRelay) pfrom.m_relays_txs = false;
+[id  33] line 3962    >=  ==>  > 
+   -  if (greatest_common_version >= WTXID_RELAY_VERSION) {
+   +  if (greatest_common_version > WTXID_RELAY_VERSION) {
+[id  35] line 3967    >=  ==>  > 
+   -  if (greatest_common_version >= 70016) {
+   +  if (greatest_common_version > 70016) {
+[id  37] line 3975    >=  ==>  > 
+   -  if (greatest_common_version >= WTXID_RELAY_VERSION && m_txreconciliation) {
+   +  if (greatest_common_version > WTXID_RELAY_VERSION && m_txreconciliation) {
+[id  40] line 3998   ^.*if\s*\(.*\)\s*return;.*$ ==> 
+   -  if (MaybeDisconnectForTxRelayCapacity(pfrom, msg_type, /*protect_peer=*/pfrom.GetId())) retu
+   +  
+[id  47] line 4045   ^\s*[a-zA-Z_]\w*(?:::[a-zA-Z_]\w*)*(?:(?:->|\.)[a-zA-Z_]\w*)*\s*\([^;]*\)\s*;$ ==> 
+   -  m_addrman.Good(pfrom.addr);
+   +  
+[id  48] line 4052   ^\s*[a-zA-Z_]\w*(?:::[a-zA-Z_]\w*)*(?:(?:->|\.)[a-zA-Z_]\w*)*\s*\([^;]*\)\s*;$ ==> 
+   -  m_outbound_time_offsets.Add(peer.m_time_offset);
+   +  
+[id  49] line 4053   ^\s*[a-zA-Z_]\w*(?:::[a-zA-Z_]\w*)*(?:(?:->|\.)[a-zA-Z_]\w*)*\s*\([^;]*\)\s*;$ ==> 
+   -  m_outbound_time_offsets.WarnIfOutOfSync();
+   +  
+[id  50] line 4057    <=  ==>  < 
+   -  if (greatest_common_version <= 70012) {
+   +  if (greatest_common_version < 70012) {
+[id  51] line 4059   ^\s*[a-zA-Z_]\w*(?:::[a-zA-Z_]\w*)*(?:(?:->|\.)[a-zA-Z_]\w*)*\s*\([^;]*\)\s*;$ ==> 
+   -  MakeAndPushMessage(pfrom, "alert", finalAlert);
+   +  
+
+--- VERACK ---
+[id  56] line 4109   && ==> ||
+   -  return tx_relay->m_tx_inventory_to_send.empty() &&
+   +  return tx_relay->m_tx_inventory_to_send.empty() ||
+[id  57] line 4110    ==  ==>  != 
+   -  tx_relay->m_next_inv_send_time == 0s));
+   +  tx_relay->m_next_inv_send_time != 0s));
+[id  60] line 4124    >=  ==>  > 
+   -  if (pfrom.GetCommonVersion() >= SHORT_IDS_BLOCKS_VERSION) {
+   +  if (pfrom.GetCommonVersion() > SHORT_IDS_BLOCKS_VERSION) {
+
+--- SENDCMPCT ---
+[id  79] line 4192   true ==> false
+   -  pfrom.fDisconnect = true;
+   +  pfrom.fDisconnect = false;
+
+--- WTXIDRELAY ---
+[id  80] line 4195    >=  ==>  > 
+   -  if (pfrom.GetCommonVersion() >= WTXID_RELAY_VERSION) {
+   +  if (pfrom.GetCommonVersion() > WTXID_RELAY_VERSION) {
+[id  81] line 4196   \b(if|else\s+if|while)\s*\(([^()]*)\) ==> $1 (1==1)
+   -  if (!peer.m_wtxid_relay) {
+   +  if (1==1) {
+
+--- SENDTXRCNCL ---
+[id  99] line 4286   \|\| ==> &&
+   -  if (!tx_relay || !WITH_LOCK(tx_relay->m_bloom_filter_mutex, return tx_relay->m_relay_txs)) {
+   +  if (!tx_relay && !WITH_LOCK(tx_relay->m_bloom_filter_mutex, return tx_relay->m_relay_txs)) {
+[id 100] line 4288   true ==> false
+   -  pfrom.fDisconnect = true;
+   +  pfrom.fDisconnect = false;
+
+--- ADDR/ADDRV2 ---
+[id 111] line 4346    >  ==>  >= 
+   -  if (vInv.size() > MAX_INV_SZ)
+   +  if (vInv.size() >= MAX_INV_SZ)
+
+--- INV ---
+[id 118] line 4378   && ==> ||
+   -  if (!fAlreadyHave && !m_chainman.m_blockman.LoadingBlocks() && !IsBlockRequested(inv.hash)) 
+   +  if (!fAlreadyHave || !m_chainman.m_blockman.LoadingBlocks() && !IsBlockRequested(inv.hash)) 
+[id 121] line 4395   continue ==> break
+   -  if (!seen_hashes.insert(inv.hash).second) continue;
+   +  if (!seen_hashes.insert(inv.hash).second) break;
+[id 122] line 4397   ^\s*[a-zA-Z_]\w*(?:::[a-zA-Z_]\w*)*(?:(?:->|\.)[a-zA-Z_]\w*)*\s*\([^;]*\)\s*;$ ==> 
+   -  AddKnownTx(peer, inv.hash);
+   +  
+[id 126] line 4426   \b(if|else\s+if|while)\s*\(([^()]*)\) ==> $1 (1==1)
+   -  if (!state.fSyncStarted) {
+   +  if (1==1) {

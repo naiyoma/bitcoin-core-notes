@@ -1,0 +1,152 @@
+total mutants (unique by content): 123
+survived: 49
+
+SURVIVING MUTATIONS
+====================================================================================================
+[run  1 id   3] 1c3bbc50a883d7d7
+   -  bool fRelay = true;
+   +  bool fRelay = false;
+[run  1 id   4] e724cf17ccb53bec
+   -  if (nTime < 0) {
+   +  if (nTime <= 0) {
+[run  1 id   7] 17e898a6a22602bf
+   -  m_addrman.SetServices(pfrom.addr, nServices);
+   +  
+[run  1 id  11] a84503d337afed09
+   -  if (nVersion < MIN_PEER_PROTO_VERSION) {
+   +  if (nVersion <= MIN_PEER_PROTO_VERSION) {
+[run  1 id  12] 932365d8e6891691
+   -  pfrom.fDisconnect = true;
+   +  pfrom.fDisconnect = false;
+[run  1 id  16] 4513f557c3e9c65b
+   -  if (pfrom.IsInboundConn() && addrMe.IsRoutable())
+   +  if (pfrom.IsInboundConn() || addrMe.IsRoutable())
+[run  1 id  17] cd05f10f8ad84037
+   -  SeenLocal(addrMe);
+   +  
+[run  1 id  21] 285e949bd67b39cb
+   -  pfrom.m_has_all_wanted_services = HasAllDesirableServiceFlags(nServices);
+   +  pfrom.m_has_all_wanted_services = true;
+[run  1 id  25] 9d0c8e54a0bc81aa
+   -  if (!pfrom.IsBlockOnlyConn() &&
+   +  if (!pfrom.IsBlockOnlyConn() ||
+[run  1 id  26] 0be6554928c6d374
+   -  !pfrom.IsFeelerConn() &&
+   +  !pfrom.IsFeelerConn() ||
+[run  1 id  28] 29e3a84a79b35bc8
+   -  tx_relay->m_relay_txs = fRelay; // set to true after we get the first filter* message
+   +  tx_relay->m_relay_txs = fRelay; // set to false after we get the first filter* message
+[run  1 id  29] acbe802434e15660
+   -  if (fRelay) pfrom.m_relays_txs = true;
+   +  if (fRelay) pfrom.m_relays_txs = false;
+[run  1 id  30] 72d0346961c438a8
+   -  if (fRelay) {
+   +  if (1==1) {
+[run  1 id  31] 680701e39c0f3c1d
+   -  MakeAndPushMessage(pfrom, NetMsgType::VERACK);
+   +  
+[run  1 id  33] 1a72524b619e2019
+   -  pfrom.fDisconnect = true;
+   +  pfrom.fDisconnect = false;
+[run  1 id  34] d12958b888a91252
+   -  if (greatest_common_version >= WTXID_RELAY_VERSION) {
+   +  if (greatest_common_version > WTXID_RELAY_VERSION) {
+[run  1 id  36] 0bef1a79effca495
+   -  if (greatest_common_version >= 70016) {
+   +  if (greatest_common_version > 70016) {
+[run  1 id  38] 6f383908bed638a5
+   -  if (greatest_common_version >= WTXID_RELAY_VERSION && m_txreconciliation) {
+   +  if (greatest_common_version > WTXID_RELAY_VERSION && m_txreconciliation) {
+[run  1 id  39] def012d7b405a0c9
+   -  if (tx_relay && WITH_LOCK(tx_relay->m_bloom_filter_mutex, return tx_relay->m_relay_txs) &&
+   +  if (tx_relay || WITH_LOCK(tx_relay->m_bloom_filter_mutex, return tx_relay->m_relay_txs) &&
+[run  1 id  40] 0fddd56c8daa8a81
+   -  !pfrom.IsAddrFetchConn() && !m_opts.ignore_incoming_txs) {
+   +  !pfrom.IsAddrFetchConn() || !m_opts.ignore_incoming_txs) {
+[run  1 id  42] 3a719fb1825a444f
+   -  state->fPreferredDownload = (!pfrom.IsInboundConn() || pfrom.HasPermission(NetPermissionFl
+   +  state->fPreferredDownload = (!pfrom.IsInboundConn() || pfrom.HasPermission(NetPermissionFl
+[run  1 id  45] 4cdea647a56455e6
+   -  MakeAndPushMessage(pfrom, NetMsgType::GETADDR);
+   +  
+[run  1 id  46] 721499d90ebe3108
+   -  peer.m_getaddr_sent = true;
+   +  peer.m_getaddr_sent = false;
+[run  1 id  47] e4bb3f57d23eb581
+   -  m_addrman.Good(pfrom.addr);
+   +  
+[run  1 id  48] 03cc697e636f2caf
+   -  m_outbound_time_offsets.Add(peer.m_time_offset);
+   +  
+[run  1 id  49] 79ce8d65ab356b4b
+   -  m_outbound_time_offsets.WarnIfOutOfSync();
+   +  
+[run  1 id  50] 725a1b88a663a4b1
+   -  if (greatest_common_version <= 70012) {
+   +  if (greatest_common_version < 70012) {
+[run  1 id  51] 4360ede2ba1b699e
+   -  MakeAndPushMessage(pfrom, "alert", finalAlert);
+   +  
+[run  2 id  55] eff53af5d678f0eb
+   -  return tx_relay->m_tx_inventory_to_send.empty() &&
+   +  return tx_relay->m_tx_inventory_to_send.empty() ||
+[run  2 id  56] cc0475d5fab9b668
+   -  tx_relay->m_next_inv_send_time == 0s));
+   +  tx_relay->m_next_inv_send_time != 0s));
+[run  2 id  57] 0b18fd58012dfb4d
+   -  pfrom.fSuccessfullyConnected = true;
+   +  pfrom.fSuccessfullyConnected = false;
+[run  2 id  58] 430d0590c6e60e6a
+   -  PushPrivateBroadcastTx(pfrom);
+   +  
+[run  2 id  59] 3b2fe675761ec4bb
+   -  if (pfrom.GetCommonVersion() >= SHORT_IDS_BLOCKS_VERSION) {
+   +  if (pfrom.GetCommonVersion() > SHORT_IDS_BLOCKS_VERSION) {
+[run  2 id  60] d9661d4a6e91225b
+   -  MakeAndPushMessage(pfrom, NetMsgType::SENDCMPCT, /*high_bandwidth=*/false, /*version=*/CMP
+   +  MakeAndPushMessage(pfrom, NetMsgType::SENDCMPCT, /*high_bandwidth=*/true, /*version=*/CMPC
+[run  5 id  78] fa1ecd2345905607
+   -  pfrom.fDisconnect = true;
+   +  pfrom.fDisconnect = false;
+[run  5 id  79] 0bddafadbd50236b
+   -  if (pfrom.GetCommonVersion() >= WTXID_RELAY_VERSION) {
+   +  if (pfrom.GetCommonVersion() > WTXID_RELAY_VERSION) {
+[run  5 id  80] e493fac971159f61
+   -  if (!peer.m_wtxid_relay) {
+   +  if (1==1) {
+[run  8 id  98] e2b21c994d1619c5
+   -  if (!tx_relay || !WITH_LOCK(tx_relay->m_bloom_filter_mutex, return tx_relay->m_relay_txs))
+   +  if (!tx_relay && !WITH_LOCK(tx_relay->m_bloom_filter_mutex, return tx_relay->m_relay_txs))
+[run  8 id  99] 0012ada211b95232
+   -  pfrom.fDisconnect = true;
+   +  pfrom.fDisconnect = false;
+[run 12 id 140] 6c4e5014049529dc
+   -  if (vInv.size() > MAX_INV_SZ)
+   +  if (vInv.size() >= MAX_INV_SZ)
+[run 12 id 141] 3b3b2301de999dd2
+   -  Misbehaving(peer, strprintf("inv message size = %u", vInv.size()));
+   +  //Misbehaving(peer, strprintf("inv message size = %u", vInv.size()));
+[run 12 id 144] c2d6cb8bffbdd8a2
+   -  if (inv.IsMsgTx()) continue;
+   +  if (inv.IsMsgTx()) break;
+[run 12 id 145] 1b06857301f6b32f
+   -  if (inv.IsMsgWtx()) continue;
+   +  if (inv.IsMsgWtx()) break;
+[run 12 id 146] d6d3e2820102b728
+   -  UpdateBlockAvailability(pfrom.GetId(), inv.hash);
+   +  
+[run 12 id 147] f2e66795e1e61ea4
+   -  if (!fAlreadyHave && !m_chainman.m_blockman.LoadingBlocks() && !IsBlockRequested(inv.hash)
+   +  if (!fAlreadyHave || !m_chainman.m_blockman.LoadingBlocks() && !IsBlockRequested(inv.hash)
+[run 12 id 150] 6d12aa3157cbbc81
+   -  AddKnownTx(peer, inv.hash);
+   +  
+[run 12 id 152] 156000a8591286c8
+   -  if (state.fSyncStarted || (!peer.m_inv_triggered_getheaders_before_sync && *best_block != 
+   +  if (state.fSyncStarted || (!peer.m_inv_triggered_getheaders_before_sync || *best_block != 
+[run 12 id 154] 4440f2ddc74a2bd9
+   -  if (!state.fSyncStarted) {
+   +  if (1==1) {
+[run 12 id 155] b1192813ea2ba066
+   -  peer.m_inv_triggered_getheaders_before_sync = true;
+   +  peer.m_inv_triggered_getheaders_before_sync = false;
