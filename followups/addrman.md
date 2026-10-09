@@ -1,0 +1,7 @@
+▎ A tried-table entry can be evicted without ever being tested, because our node was offline and couldn't test it, and addrman treats that the same as the entry being unreachable.   
+                                                                                                                                                                                        
+  The pieces:                                                                                                                                                                           
+  - Which addresses: only tried entries (O) that were in a pending collision when the network went off. Pending collisions are capped at 10, so at most 10 entries per offline period.  
+  - Why no test happens: with the network off, no feelers run and no connection is attempted, so Attempt() is never recorded for O.                                                     
+  - Why it's still evicted: after 40 minutes, ResolveCollisions() assumes "we must not be able to connect to it" and replaces O with N.                                                 
+  - The flaw: the failure to test was ours, not O's. Addrman doesn't know the network was off, so it blames O. 
